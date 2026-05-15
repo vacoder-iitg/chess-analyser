@@ -7,3 +7,4 @@ pydantic==2.13.2
 aiohttp==3.13.5
 python-dateutil==2.9.0.post0
 numpy==2.4.4
+chess-com-api==1.1.0
