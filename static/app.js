@@ -97,21 +97,7 @@ function displayAnalysis(data, fen) {
     $evalScore.text(evalText);
     $evalFill.css('width', evalWidth + '%');
 
-    let expectedBestMove = '-';
-    const history = game.history();
-    if (history.length === 0) {
-        expectedBestMove = data.best_move || '-';
-    } else {
-        let tempGame = new Chess();
-        tempGame.load_pgn(game.pgn());
-        tempGame.undo();
-        let prevFen = tempGame.fen();
-        if (analysisCache.has(prevFen)) {
-            expectedBestMove = analysisCache.get(prevFen).best_move || '-';
-        } else {
-            expectedBestMove = '-'; 
-        }
-    }
+    let expectedBestMove = data.best_move || '-';
     $bestMove.text(expectedBestMove);
 }
 
@@ -132,6 +118,26 @@ async function analyzePosition() {
         $loading.addClass('hidden');
         return;
     }
+    
+    // Get proper prevCp from cache if available
+    let tempPrevCp = null;
+    let tempPrevMate = null;
+    const history = game.history();
+    if (history.length > 0) {
+        let tempGame = new Chess();
+        tempGame.load_pgn(game.pgn());
+        tempGame.undo();
+        let pFen = tempGame.fen();
+        if (analysisCache.has(pFen)) {
+            let pData = analysisCache.get(pFen);
+            tempPrevCp = pData.raw_cp !== undefined ? pData.raw_cp : null;
+            tempPrevMate = pData.mate !== undefined ? pData.mate : null;
+        }
+    } else {
+        tempPrevCp = null;
+        tempPrevMate = null;
+    }
+
     isAnalyzing = true;
     $loading.removeClass('hidden');
     if (currentAbortController) currentAbortController.abort();
@@ -140,7 +146,7 @@ async function analyzePosition() {
         const response = await fetch('/evaluate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fen: fen, prev_cp: prevCp, prev_mate: prevMate }),
+            body: JSON.stringify({ fen: fen, prev_cp: tempPrevCp, prev_mate: tempPrevMate }),
             signal: currentAbortController.signal
         });
         if (!response.ok) return;
