@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Analyser</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Chess Analyser</h1>
+            <p>Engine evaluation Opening Explorer</p>
+        </div>
+        <div class="main-content">
+            <div class="board-wrapper">
+                <div id="board-top-player" class="board-player">Black: -</div>
+                <div class="board-container" style="position: relative;">
+                    <div id="board"></div>
+                    <svg id="arrow-canvas"></svg>
+                </div>
+                <div id="board-bottom-player" class="board-player">White: -</div>
+            </div>
+            <div class="analysis-panel">
+                <div class="status-box">
+                    <h3>Game Status</h3>
+                    <div id="status" class="value">White to move</div>
+                </div>
+                <div class="status-box">
+                    <h3>Opening Detected</h3>
+                    <div id="opening" class="value highlight">Starting Position</div>
+                </div>
+                <div class="status-box">
+                    <h3>Evaluation (Stockfish)</h3>
+                    <div class="eval-container">
+                        <div class="eval-bar">
+                            <div id="eval-fill" class="eval-fill" style="width: 50%;"></div>
+                        </div>
+                        <div id="eval-score" class="value">0.00</div>
+                    </div>
+                </div>
+                <div class="status-box">
+                    <h3>Move Classification</h3>
+                    <div id="classification" class="value" style="font-weight: 600;">-</div>
+                </div>
+                <div class="status-box">
+                    <h3>Best Move</h3>
+                    <div id="best-move" class="value">-</div>
+                </div>
+                <div class="status-box">
+                    <h3>Current PGN</h3>
+                    <div id="pgn" class="pgn-display">-</div>
+                </div>
+                <div class="status-box">
+                    <h3>Game Accuracy</h3>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button id="calc-board-accuracy-btn" class="btn"
+                            style="background-color: #2196f3; padding: 8px;">Board Moves</button>
+                        <button id="calc-pgn-accuracy-btn" class="btn"
+                            style="background-color: #9c27b0; padding: 8px;">Pasted PGN</button>
+                    </div>
+                    <div id="accuracy-results" class="hidden" style="font-size: 0.9rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <strong style="color: #e0e0e0;">White: <span id="acc-w-overall">-</span>%</strong>
+                            <span style="color: #aaaaaa;">(O: <span id="acc-w-op">-</span> M: <span
+                                    id="acc-w-mid">-</span> E: <span id="acc-w-end">-</span>)</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong style="color: #e0e0e0;">Black: <span id="acc-b-overall">-</span>%</strong>
+                            <span style="color: #aaaaaa;">(O: <span id="acc-b-op">-</span> M: <span
+                                    id="acc-b-mid">-</span> E: <span id="acc-b-end">-</span>)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="reset-btn" class="btn">New</button>
+                    <button id="prev-btn" class="btn">Prev</button>
+                    <button id="next-btn" class="btn">Next</button>
+                    <button id="flip-btn" class="btn">Flip</button>
+                    <button id="threats-btn" class="btn" style="background-color: #8b0000;">Threats</button>
+                </div>
+                <div class="pgn-input-section">
+                    <textarea id="pgn-input" class="pgn-textarea"
+                        placeholder="Paste PGN here to load a game..."></textarea>
+                    <button id="load-pgn-btn" class="btn btn-full">Load Game</button>
+                </div>
+                <div class="pgn-input-section" style="margin-top: 20px;">
+                    <h3>Fetch Top Games</h3>
+                    <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                        <select id="fetch-platform" class="form-input" style="flex: 1;">
+                            <option value="chesscom">Chess.com</option>
+                            <option value="lichess">Lichess</option>
+                        </select>
+                        <select id="fetch-time" class="form-input" style="flex: 1;">
+                            <option value="blitz">Blitz</option>
+                            <option value="rapid">Rapid</option>
+                            <option value="bullet">Bullet</option>
+                            <option value="classical">Classical</option>
+                        </select>
+                    </div>
+                    <input type="text" id="fetch-username" class="form-input" placeholder="Enter Username">
+                    <button id="fetch-games-btn" class="btn btn-full">Fetch Games</button>
+                    <div id="fetched-games-list" class="fetched-games-list"></div>
+                </div>
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div><span>Analyzing...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
