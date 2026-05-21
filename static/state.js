@@ -1,0 +1,42 @@
+export const elements = {
+    board: document.getElementById('board'),
+    status: document.getElementById('status'),
+    opening: document.getElementById('opening'),
+    evalScore: document.getElementById('eval-score'),
+    evalFill: document.getElementById('eval-fill'),
+    classification: document.getElementById('classification'),
+    bestMove: document.getElementById('best-move'),
+    loading: document.getElementById('eval-loading'),
+    pgnGrid: document.getElementById('pgn-grid'),
+    deviationBanner: document.getElementById('deviation-banner'),
+    returnMainlineBtn: document.getElementById('return-mainline-btn'),
+    copyPgnBtn: document.getElementById('copy-pgn-btn'),
+    accuracyResults: document.getElementById('accuracy-results'),
+    engineDepth: document.getElementById('engine-depth'),
+    engineTime: document.getElementById('engine-time'),
+    topPlayer: document.getElementById('board-top-player'),
+    bottomPlayer: document.getElementById('board-bottom-player'),
+    pgnInput: document.getElementById('pgn-input'),
+    fetchGamesList: document.getElementById('fetched-games-list'),
+    plotGraphBtn: document.getElementById('plot-graph-btn'),
+    plotLoading: document.getElementById('plot-loading'),
+    evalChart: document.getElementById('eval-chart'),
+    metricsChart: document.getElementById('metrics-chart')
+};
+
+export const state = {
+    game: new Chess(),
+    board: null,
+    currentFullPGN: "",
+    loadedGameMoves: [],
+    variationMoves: [],
+    isExploringVariation: false,
+    deviationIndex: null,
+    currentMoveIndex: 0,
+    prevCp: null,
+    prevMate: null,
+    isAnalyzing: false,
+    currentThreats: [],
+    whitePlayerString: "White: -",
+    blackPlayerString: "Black: -"
+};

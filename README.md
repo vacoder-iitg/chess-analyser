@@ -1,70 +1,62 @@
-# ♟️ Chess Performance Analyser
+# Chess Performance Analyser
 
-A Python-based toolset for extracting chess games from online platforms and performing deep move-by-move accuracy analysis using the Stockfish engine.
+A web-based application designed to analyze chess games and extract deep, move-by-move insights using the Stockfish engine. It provides an interactive interface for evaluating board positions, importing games from online platforms, and visualizing game metrics through dynamic charts.
 
-## 🚀 Features
-- **Game Extraction**: Automatically fetch the latest games from Chess.com and Lichess.
-- **Accuracy Scoring**: Move-by-move accuracy calculation based on win-probability shifts.
-- **Phase Analysis**: Performance breakdown across Opening, Middlegame, and Endgame phases.
-- **Opening Recognition**: Identify and categorize games by specific opening names and variations using a fast FEN-based detector.
-- **Performance Highlights**: Track conversion of advantage states and recovery from losing positions.
+## Features
 
-## 🛠️ Tech Stack
-- **Language**: Python
-- **Libraries**: `python-chess`, `requests`, `python-lichess`
+- **Interactive Analysis Board**: A fully playable chessboard that evaluates moves in real-time.
+- **Move Classification**: Instantly categorizes moves as Best Moves, Excellent, Good, Inaccuracies, Mistakes, or Blunders.
+- **Game Import**: Fetch recent games directly from Chess.com and Lichess using your username.
+- **Dynamic Visualization**: Generates interactive charts showing advantage shifts and tactical tension (fragility) over the course of a game.
+- **Opening Recognition**: Automatically identifies the opening sequence you are playing using a local database.
+- **Accuracy Scoring**: Calculates overall, opening, middlegame, and endgame accuracy based on win-probability shifts.
+
+## Tech Stack
+
+- **Backend**: Python, FastAPI
+- **Frontend**: HTML, CSS, JavaScript, Chart.js
+- **Chess Logic**: `python-chess` (Backend), `chess.js` and `chessground` (Frontend)
 - **Engine**: Stockfish (UCI compatible)
 
-## 📋 Prerequisites
-- Python 3.x
-- [Stockfish Engine](https://stockfishchess.org/download/) installed locally.
+## Prerequisites
+- A local copy of the Stockfish Engine.
 
-## ⚙️ Setup & Installation
+## Setup and Installation
+
 1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/vacoder-iitg/chess-analyser.git
-   cd chess-analyser
-   ```
+   Ensure you have cloned the repository to your local machine and navigated into the project directory.
 
 2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+   Install the required Python packages using pip:
+   `pip install -r requirements.txt`
 
-3. **Download Stockfish**:
-   The Stockfish engine is required for analysis.
-   - Download the Stockfish binary from [stockfishchess.org](https://stockfishchess.org/download/).
-   - Place the `stockfish.exe` (or your platform's binary) in the `stockfish/` directory.
-   - Ensure the path in `analyser/game_stats.py` matches your binary location.
+3. **Configure Stockfish**:
+   The Stockfish engine is strictly required for the analysis features to work.
+   - Download the Stockfish binary for your operating system from the official Stockfish website.
+   - Place the `stockfish.exe`  into the `stockfish/` directory within this project.
 
-## 📖 Usage
+## Usage
 
-### 1. Fetch Games
+1. **Start the server**:
+   Launch the FastAPI web server by running the following command in your terminal:
+   `uvicorn app:app --reload`
 
-To download your latest games from Chess.com:
-```bash
-python pgn_parser/chesscom_game_extractor.py
-```
+2. **Open the application**:
+   Open your web browser and navigate to `http://127.0.0.1:8000` to access the interface.
 
-To download your latest games from Lichess:
-Update the `LICHESS_USERNAME` in `pgn_parser/lichess_game_extractor.py` and run:
-```bash
-python pgn_parser/lichess_game_extractor.py
-```
+3. **Analyze games**:
+   You can make moves directly on the board, paste a PGN string into the text box, or use the import tool to fetch games from Chess.com or Lichess. Click the analysis buttons to generate accuracy reports and visual charts.
 
-### 2. Run Analysis
+## Project Structure
 
-Run the batch analysis script:
-```bash
-python analyser/game_stats.py
-```
+- `app.py`: The main FastAPI server application and API endpoints.
+- `game_analyzer.py`: Backend logic for batch-processing and scoring full games.
+- `opening_explorer.py`: Utility for identifying chess openings from FEN strings.
+- `analyser/`: Contains mathematical models for calculating tactical tension and engine wrapper logic.
+- `static/`: Contains all frontend assets including the HTML, CSS, and JavaScript files.
+- `Openings/`: Contains the JSON database used for opening recognition.
+- `stockfish/`: The designated directory for your Stockfish binary.
 
-## 📂 Project Structure
-
-- `analyser/`: Core analysis logic and stats calculation.
-- `pgn_parser/`: Scripts to fetch games from online platforms.
-- `Openings/`: Opening database (JSON).
-- `stockfish/`: Placeholder for the Stockfish engine and source.
-
-## 📜 License
+## License
 
 This project is licensed under the terms of the LICENSE file included in the repository.

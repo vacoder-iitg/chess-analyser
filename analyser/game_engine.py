@@ -91,7 +91,8 @@ def analyze_game(game, stockfish_path):
 
         # ENGINE WORKFLOW TIMING CLOCK START
         pos_start_time = time.time()
-        f_score = calculate_fragility_score(board)
+        # Calculate combined fragility of both White and Black pieces for overall board tension
+        f_score = calculate_fragility_score(board, chess.WHITE) + calculate_fragility_score(board, chess.BLACK)
         game_data[player]["fragility_history"].append(f_score)
         
         board.push(move)

@@ -11,6 +11,10 @@ body {
     margin: 0;
     padding: 0;
     background-color: var(--bg-main);
+    background-image: url('bg-theme.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
     display: flex;

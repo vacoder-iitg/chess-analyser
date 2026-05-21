@@ -15,7 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'analyser'))
 from opening_explorer import FastOpeningDetector
 from game_engine import cp_to_win_prob, calculate_move_accuracy, analyze_game
 from game_analyzer import analyze_full_game
-from plotter import plot_game_metrics
+
 import io
 
 app = FastAPI()
@@ -127,6 +127,7 @@ async def evaluate_position(req: EvaluationRequest):
         
         category = None
         accuracy = None
+        prev_best_move = None
         
         if prev_fen:
             if opening_name != "Unknown Opening":
@@ -146,6 +147,8 @@ async def evaluate_position(req: EvaluationRequest):
                         "best_move": prev_board.san(info_prev["pv"][0]) if "pv" in info_prev and info_prev["pv"] else None,
                         "raw_cp": prev_cp
                     }
+                
+                prev_best_move = evaluation_cache[prev_cache_key]["best_move"]
                 
                 player = "black" if board.turn == chess.WHITE else "white"
                 wp_before = cp_to_win_prob(prev_cp)
@@ -169,14 +172,15 @@ async def evaluate_position(req: EvaluationRequest):
             "category": category,
             "accuracy": accuracy,
             "opening": opening_name,
-            "threats": get_threats(board)
+            "threats": get_threats(board),
+            "prev_best_move": prev_best_move
         }
 
     current_analysis_task = asyncio.create_task(run_analysis())
     try:
         return await current_analysis_task
     except asyncio.CancelledError:
-        return {"score": 0.0, "mate": None, "best_move": None, "opening": opening_name, "category": "Interrupted", "accuracy": None, "raw_cp": 0, "threats": []}
+        return {"score": 0.0, "mate": None, "best_move": None, "opening": opening_name, "category": "Interrupted", "accuracy": None, "raw_cp": 0, "threats": [], "prev_best_move": None}
 
 @app.post("/analyze_full_game")
 async def handle_full_game_analysis(req: FullGameAnalysisRequest):

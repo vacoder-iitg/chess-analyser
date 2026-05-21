@@ -11,7 +11,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,9 +19,12 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Chess Analyser</h1>
-            <p>Engine evaluation Opening Explorer</p>
+        <div class="header" style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+            <img src="/static/chess_icon.png" alt="Chess Icon" style="height: 60px;">
+            <div style="text-align: left;">
+                <h1 style="margin-bottom: 0;">Chess Analyser</h1>
+                <p style="margin-top: 5px;">Engine evaluation Opening Explorer</p>
+            </div>
         </div>
 
         <div class="main-content">
@@ -43,10 +46,17 @@
                 <div class="graph-section" style="margin-top: 10px; text-align: center; background-color: var(--bg-panel); padding: 15px; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; box-sizing: border-box;">
                     <button id="plot-graph-btn" class="btn btn-full" style="background-color: #ff9800; width: 100%; margin-bottom: 10px;">Analyse your pasted PGN or imported games</button>
                     <div id="plot-loading" class="loading hidden" style="margin-bottom: 10px; font-size: 0.9rem;">
-                        <div class="spinner"></div><span>Generating plot...</span>
+                        <div class="spinner"></div><span>Analysing game...</span>
                     </div>
                     <canvas id="eval-chart" style="width: 100%; display: none; margin-bottom: 15px;"></canvas>
                     <canvas id="metrics-chart" style="width: 100%; display: none;"></canvas>
+                    <div id="tactical-tension-info" style="display: none; text-align: left; margin-top: 15px; font-size: 0.85rem; color: #aaa; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; border-left: 3px solid #d62728;">
+                        <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px; color: #ddd;">
+                            <span class="material-icons" style="font-size: 16px;">help_outline</span>
+                            <strong style="font-size: 0.9rem;">What is Tactical Tension?</strong>
+                        </div>
+                        Tactical Tension measures how explosive the board is based on the number of pieces currently hanging or under attack for both players. <span style="color: #fff;">Wherever the spikes are more, you need to review those positions more deeply!</span>
+                    </div>
                 </div>
             </div>
 
@@ -78,7 +88,7 @@
                 </div>
 
                 <div class="status-box">
-                    <h3>Best Move</h3>
+                    <h3>Next Best Move</h3>
                     <div id="best-move" class="value">-</div>
                 </div>
 
@@ -100,7 +110,7 @@
                     <h3>Game Accuracy</h3>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <button id="calc-board-accuracy-btn" class="btn" style="background-color: #2196f3; padding: 8px;">Board Moves</button>
-                        <button id="calc-pgn-accuracy-btn" class="btn" style="background-color: #9c27b0; padding: 8px;">Pasted PGN</button>
+                        <button id="calc-pgn-accuracy-btn" class="btn" style="background-color: #9c27b0; padding: 8px;">Analyse Imported game</button>
                     </div>
                     <div id="accuracy-results" class="hidden" style="font-size: 0.9rem;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
