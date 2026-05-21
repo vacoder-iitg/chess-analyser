@@ -1,54 +1,107 @@
-let board = null;
+import { Chessground } from 'https://unpkg.com/chessground@9.2.1/dist/chessground.min.js';
+
+const elements = {
+    board: document.getElementById('board'),
+    status: document.getElementById('status'),
+    opening: document.getElementById('opening'),
+    evalScore: document.getElementById('eval-score'),
+    evalFill: document.getElementById('eval-fill'),
+    bestMove: document.getElementById('best-move'),
+    loading: document.getElementById('loading'),
+    pgn: document.getElementById('pgn'),
+    classification: document.getElementById('classification'),
+    accuracyResults: document.getElementById('accuracy-results'),
+    topPlayer: document.getElementById('board-top-player'),
+    bottomPlayer: document.getElementById('board-bottom-player'),
+    pgnInput: document.getElementById('pgn-input'),
+    fetchGamesList: document.getElementById('fetched-games-list')
+};
+
 let game = new Chess();
-let isAnalyzing = false;
-
-const $status = $('#status');
-const $opening = $('#opening');
-const $evalScore = $('#eval-score');
-const $evalFill = $('#eval-fill');
-const $bestMove = $('#best-move');
-const $loading = $('#loading');
-const $pgn = $('#pgn');
-const $classification = $('#classification');
-
+let board = null; // Chessground instance
+let currentFullPGN = "";
+let loadedGameMoves = [];
+let currentMoveIndex = 0;
 let prevCp = null;
 let prevMate = null;
-let isRightClick = false;
+let isAnalyzing = false;
+let currentThreats = [];
+let whitePlayerString = "White: -";
+let blackPlayerString = "Black: -";
 
-document.addEventListener('mousedown', e => { if (e.button === 2) isRightClick = true; }, true);
-document.addEventListener('mouseup', e => { if (e.button === 2) isRightClick = false; }, true);
-
-function onDragStart(source, piece, position, orientation) {
-    if (isRightClick || game.game_over()) return false;
-    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) || (game.turn() === 'b' && piece.search(/^w/) !== -1)) return false;
+function getLegalMoves(chessGame) {
+    const dests = new Map();
+    chessGame.SQUARES.forEach(s => {
+        const moves = chessGame.moves({ square: s, verbose: true });
+        if (moves.length) dests.set(s, moves.map(m => m.to));
+    });
+    return dests;
 }
 
-function onDrop(source, target) {
-    const move = game.move({ from: source, to: target, promotion: 'q' });
-    if (move === null) return 'snapback';
+function initBoard() {
+    board = Chessground(elements.board, {
+        fen: game.fen(),
+        orientation: 'white',
+        turnColor: 'white',
+        movable: {
+            color: 'white',
+            free: false,
+            dests: getLegalMoves(game),
+            events: { after: onDrop }
+        },
+        drawable: { enabled: true, visible: true }
+    });
+}
+
+function onDrop(orig, dest) {
+    const move = game.move({ from: orig, to: dest, promotion: 'q' });
+    
+    if (move === null) {
+        board.set({ fen: game.fen() }); // Snapback
+        return;
+    }
     
     loadedGameMoves = [];
     currentMoveIndex = 0;
+    currentFullPGN = game.pgn();
     
-    clearArrows(false);
-    updateStatus();
+    updateBoardState();
     debouncedAnalyzePosition();
 }
 
-function onSnapEnd() { board.position(game.fen()); }
+function updateBoardState() {
+    board.set({
+        fen: game.fen(),
+        turnColor: game.turn() === 'w' ? 'white' : 'black',
+        movable: {
+            color: game.turn() === 'w' ? 'white' : 'black',
+            dests: getLegalMoves(game)
+        },
+        drawable: { shapes: [] } // Clear arrows on move
+    });
+    updateStatus();
+}
 
 function updateStatus() {
     let statusHTML = '';
-    let moveColor = (game.turn() === 'w') ? 'White' : 'Black';
-    if (game.in_checkmate()) statusHTML = 'Game over, ' + moveColor + ' is in checkmate.';
+    const moveColor = game.turn() === 'w' ? 'White' : 'Black';
+
+    if (game.in_checkmate()) statusHTML = `Game over, ${moveColor} is in checkmate.`;
     else if (game.in_draw()) statusHTML = 'Game over, drawn position';
     else {
-        statusHTML = moveColor + ' to move';
-        if (game.in_check()) statusHTML += ', ' + moveColor + ' is in check';
+        statusHTML = `${moveColor} to move`;
+        if (game.in_check()) statusHTML += `, ${moveColor} is in check`;
     }
-    $status.text(statusHTML);
-    $pgn.text(game.pgn() || '-');
-    $pgn.scrollTop($pgn[0].scrollHeight);
+    
+    elements.status.textContent = statusHTML;
+    elements.pgn.textContent = game.pgn() || '-';
+    elements.pgn.scrollTop = elements.pgn.scrollHeight;
+}
+
+function updatePlayerOrientation() {
+    const isWhiteBottom = board.state.orientation === 'white';
+    elements.topPlayer.textContent = isWhiteBottom ? blackPlayerString : whitePlayerString;
+    elements.bottomPlayer.textContent = isWhiteBottom ? whitePlayerString : blackPlayerString;
 }
 
 let analysisTimeout = null;
@@ -58,68 +111,72 @@ let currentAbortController = null;
 
 function displayAnalysis(data, fen) {
     if (game.fen() !== fen) return;
-    prevCp = data.raw_cp !== undefined ? data.raw_cp : null;
-    prevMate = data.mate !== undefined ? data.mate : null;
+
+    prevCp = data.raw_cp ?? null;
+    prevMate = data.mate ?? null;
     currentThreats = data.threats || [];
-    
+
     if (data.opening && data.opening !== 'Unknown Opening') {
-        $opening.text(data.opening);
+        elements.opening.textContent = data.opening;
     }
 
     if (data.category) {
         let catHTML = data.category;
         if (data.accuracy !== null) catHTML += ` <span style="font-size:0.8em; color:#888;">(${data.accuracy.toFixed(1)}%)</span>`;
+        
         let catColor = '#e0e0e0';
         if (data.category === 'Book Move') catColor = '#a87ca0';
-        else if (data.category === 'Best Move' || data.category === 'Excellent') catColor = '#4caf50';
+        else if (['Best Move', 'Excellent'].includes(data.category)) catColor = '#4caf50';
         else if (data.category === 'Good') catColor = '#8bc34a';
         else if (data.category === 'Inaccuracy') catColor = '#ffc107';
         else if (data.category === 'Mistake') catColor = '#ff9800';
         else if (data.category === 'Blunder') catColor = '#f44336';
-        $classification.html(catHTML).css('color', catColor);
+        
+        elements.classification.innerHTML = catHTML;
+        elements.classification.style.color = catColor;
     } else {
-        $classification.html('-').css('color', '#e0e0e0');
+        elements.classification.innerHTML = '-';
+        elements.classification.style.color = '#e0e0e0';
     }
 
-    let evalText = '';
+    let evalText = '0.00';
     let evalWidth = 50;
+    
     if (data.mate !== null && data.mate !== undefined) {
-        evalText = 'M' + Math.abs(data.mate);
-        if (data.mate > 0) { evalWidth = 100; evalText = '+' + evalText; } 
-        else { evalWidth = 0; evalText = '-' + evalText; }
+        evalText = `M${Math.abs(data.mate)}`;
+        if (data.mate > 0) { evalWidth = 100; evalText = `+${evalText}`; }
+        else { evalWidth = 0; evalText = `-${evalText}`; }
     } else if (data.score !== null && data.score !== undefined) {
         evalText = (data.score > 0 ? '+' : '') + data.score.toFixed(2);
         evalWidth = 50 + (Math.max(-5, Math.min(5, data.score)) * 10);
-    } else {
-        evalText = '0.00';
-        evalWidth = 50;
     }
-    $evalScore.text(evalText);
-    $evalFill.css('width', evalWidth + '%');
+    
+    elements.evalScore.textContent = evalText;
+    elements.evalFill.style.width = `${evalWidth}%`;
 
     let expectedBestMove = data.best_move || '-';
-    $bestMove.text(expectedBestMove);
+    elements.bestMove.textContent = expectedBestMove;
 }
 
 function debouncedAnalyzePosition() {
     clearTimeout(analysisTimeout);
-    $loading.removeClass('hidden');
-    $classification.html('-').css('color', '#e0e0e0');
-    $bestMove.text('-');
+    elements.loading.classList.remove('hidden');
+    elements.classification.innerHTML = '-';
+    elements.classification.style.color = '#e0e0e0';
+    elements.bestMove.textContent = '-';
     analysisTimeout = setTimeout(() => analyzePosition(), 400);
 }
 
 async function analyzePosition() {
     const fen = game.fen();
     currentAnalysisFen = fen;
+    
     if (analysisCache.has(fen)) {
         displayAnalysis(analysisCache.get(fen), fen);
-        isAnalyzing = false;
-        $loading.addClass('hidden');
+        elements.loading.classList.add('hidden');
         return;
     }
     
-    // Get proper prevCp from cache if available
     let tempPrevCp = null;
     let tempPrevMate = null;
     const history = game.history();
@@ -133,242 +190,169 @@ async function analyzePosition() {
             tempPrevCp = pData.raw_cp !== undefined ? pData.raw_cp : null;
             tempPrevMate = pData.mate !== undefined ? pData.mate : null;
         }
-    } else {
-        tempPrevCp = null;
-        tempPrevMate = null;
     }
 
-    isAnalyzing = true;
-    $loading.removeClass('hidden');
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
+    
     try {
         const response = await fetch('/evaluate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fen: fen, prev_cp: tempPrevCp, prev_mate: tempPrevMate }),
+            body: JSON.stringify({ fen, prev_cp: tempPrevCp, prev_mate: tempPrevMate }),
             signal: currentAbortController.signal
         });
+        
         if (!response.ok) return;
         const data = await response.json();
+        
         if (currentAnalysisFen !== fen) return;
         analysisCache.set(fen, data);
         displayAnalysis(data, fen);
-    } catch (error) {
+    } catch (e) {
     } finally {
-        if (currentAnalysisFen === fen) {
-            isAnalyzing = false;
-            $loading.addClass('hidden');
-        }
+        if (currentAnalysisFen === fen) elements.loading.classList.add('hidden');
     }
 }
 
-let loadedGameMoves = [];
-let currentMoveIndex = 0;
-let whitePlayerString = "White: -";
-let blackPlayerString = "Black: -";
-
-function updatePlayerOrientation() {
-    if (board.orientation() === 'white') {
-        $('#board-top-player').text(blackPlayerString);
-        $('#board-bottom-player').text(whitePlayerString);
-    } else {
-        $('#board-top-player').text(whitePlayerString);
-        $('#board-bottom-player').text(blackPlayerString);
-    }
-}
-
-$('#reset-btn').on('click', () => {
+document.getElementById('reset-btn').addEventListener('click', () => {
     game.reset();
-    board.start();
-    updateStatus();
-    prevCp = null;
-    prevMate = null;
+    currentFullPGN = "";
     loadedGameMoves = [];
     currentMoveIndex = 0;
-    clearArrows(false);
+    prevCp = null;
+    prevMate = null;
+    
     whitePlayerString = 'White: -';
     blackPlayerString = 'Black: -';
+    
+    updateBoardState();
     updatePlayerOrientation();
-    $opening.text('Starting Position');
-    $evalScore.text('0.00');
-    $evalFill.css('width', '50%');
-    $bestMove.text('-');
-    $classification.html('-').css('color', '#e0e0e0');
-    $('#accuracy-results').addClass('hidden');
+    elements.opening.textContent = 'Starting Position';
+    elements.evalScore.textContent = '0.00';
+    elements.evalFill.style.width = '50%';
+    elements.bestMove.textContent = '-';
+    elements.classification.innerHTML = '-';
+    elements.classification.style.color = '#e0e0e0';
+    elements.accuracyResults.classList.add('hidden');
 });
 
-$('#prev-btn').on('click', () => {
+document.getElementById('prev-btn').addEventListener('click', () => {
     if (game.history().length === 0) return;
     game.undo();
     if (currentMoveIndex > 0) currentMoveIndex--;
-    board.position(game.fen());
-    updateStatus();
-    prevCp = null;
-    prevMate = null;
-    clearArrows(false);
-    $classification.html('-').css('color', '#e0e0e0');
+    
+    updateBoardState();
     if (game.history().length > 0) debouncedAnalyzePosition();
     else {
-        $opening.text('Starting Position');
-        $evalScore.text('0.00');
-        $evalFill.css('width', '50%');
-        $bestMove.text('-');
+        elements.opening.textContent = 'Starting Position';
+        elements.evalScore.textContent = '0.00';
+        elements.evalFill.style.width = '50%';
+        elements.bestMove.textContent = '-';
     }
 });
 
-$('#next-btn').on('click', () => {
+document.getElementById('next-btn').addEventListener('click', () => {
     if (currentMoveIndex < loadedGameMoves.length) {
-        clearArrows(false);
         game.move(loadedGameMoves[currentMoveIndex]);
         currentMoveIndex++;
-        board.position(game.fen());
-        updateStatus();
+        updateBoardState();
         debouncedAnalyzePosition();
     }
 });
 
-$('#flip-btn').on('click', () => {
-    board.flip();
+document.getElementById('flip-btn').addEventListener('click', () => {
+    board.set({ orientation: board.state.orientation === 'white' ? 'black' : 'white' });
     updatePlayerOrientation();
-    clearArrows(false);
 });
 
-$('#load-pgn-btn').on('click', () => {
-    const pgnText = $('#pgn-input').val().trim();
+document.getElementById('threats-btn').addEventListener('click', () => {
+    const shapes = currentThreats.map(t => ({
+        orig: t.from,
+        dest: t.to,
+        brush: 'red'
+    }));
+    board.set({ drawable: { shapes: shapes } });
+});
+
+document.getElementById('load-pgn-btn').addEventListener('click', () => {
+    const pgnText = elements.pgnInput.value.trim();
     if (!pgnText) return;
+    
     let tempGame = new Chess();
     if (tempGame.load_pgn(pgnText)) {
+        currentFullPGN = tempGame.pgn();
         loadedGameMoves = tempGame.history();
         currentMoveIndex = 0;
+        
         const headers = tempGame.header();
         const wElo = headers.WhiteElo && headers.WhiteElo !== '?' ? ` (${headers.WhiteElo})` : '';
         const bElo = headers.BlackElo && headers.BlackElo !== '?' ? ` (${headers.BlackElo})` : '';
         whitePlayerString = `White: ${headers.White || 'Unknown'}${wElo}`;
         blackPlayerString = `Black: ${headers.Black || 'Unknown'}${bElo}`;
-        updatePlayerOrientation();
+        
         game.reset();
-        board.start();
-        updateStatus();
-        prevCp = null;
-        prevMate = null;
-        clearArrows(false);
-        $opening.text('Starting Position');
-        $evalScore.text('0.00');
-        $evalFill.css('width', '50%');
-        $bestMove.text('-');
-        $classification.html('-').css('color', '#e0e0e0');
-        $('#accuracy-results').addClass('hidden');
+        updateBoardState();
+        updatePlayerOrientation();
+        
+        elements.opening.textContent = 'Starting Position';
+        elements.evalScore.textContent = '0.00';
+        elements.evalFill.style.width = '50%';
+        elements.bestMove.textContent = '-';
+        elements.classification.innerHTML = '-';
+        elements.classification.style.color = '#e0e0e0';
+        elements.accuracyResults.classList.add('hidden');
     } else {
         alert("Invalid PGN format.");
     }
 });
 
-const config = {
-    draggable: true,
-    position: 'start',
-    onDragStart: onDragStart,
-    onDrop: onDrop,
-    onSnapEnd: onSnapEnd,
-    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-};
-
-board = Chessboard('board', config);
-updateStatus();
-
-let currentThreats = [];
-let rightClickStartSq = null;
-
-function initArrowCanvas() {
-    $('#arrow-canvas').html(`<defs><marker id="head-arrow-green" orient="auto" markerWidth="4" markerHeight="4" refX="2" refY="5" viewBox="0 0 10 10"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#4caf50"></path></marker><marker id="head-arrow-red" orient="auto" markerWidth="4" markerHeight="4" refX="2" refY="5" viewBox="0 0 10 10"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#f44336"></path></marker></defs>`);
-}
-initArrowCanvas();
-
-function drawArrow(fromSq, toSq, colorClass, isUserArrow = false) {
-    const $from = $('#board .square-' + fromSq);
-    const $to = $('#board .square-' + toSq);
-    if (!$from.length || !$to.length) return;
-    const fromPos = $from.position();
-    const toPos = $to.position();
-    const sqSize = $from.width();
-    let x1 = fromPos.left + sqSize / 2;
-    let y1 = fromPos.top + sqSize / 2;
-    let x2 = toPos.left + sqSize / 2;
-    let y2 = toPos.top + sqSize / 2;
-    const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-    if (len > 0) {
-        const ratio = (len - sqSize * 0.4) / len;
-        x2 = x1 + (x2 - x1) * ratio;
-        y2 = y1 + (y2 - y1) * ratio;
-    }
-    const $line = $(document.createElementNS('http://www.w3.org/2000/svg', 'line'));
-    $line.attr({ x1, y1, x2, y2, 'class': 'arrow-line ' + colorClass + (isUserArrow ? ' user-arrow' : ''), 'marker-end': `url(#head-${colorClass})` });
-    $('#arrow-canvas').append($line);
-}
-
-function clearArrows(userOnly = false) {
-    if (userOnly) $('#arrow-canvas .user-arrow').remove();
-    else $('#arrow-canvas line').remove();
-}
-
-$('#board').on('contextmenu', e => e.preventDefault());
-$('#board').on('mousedown', '.square-55d63', function(e) {
-    if (e.button === 2) rightClickStartSq = $(this).attr('data-square');
-    else if (e.button === 0) clearArrows();
-});
-$('#board').on('mouseup', '.square-55d63', function(e) {
-    if (e.button === 2 && rightClickStartSq) {
-        const toSq = $(this).attr('data-square');
-        if (toSq && toSq !== rightClickStartSq) drawArrow(rightClickStartSq, toSq, 'arrow-green', true);
-        rightClickStartSq = null;
-    }
-});
-
-$('#threats-btn').on('click', () => {
-    clearArrows(false);
-    currentThreats.forEach(t => drawArrow(t.from, t.to, 'arrow-red', false));
-});
-
-$('#fetch-games-btn').on('click', async () => {
-    const platform = $('#fetch-platform').val();
-    const username = $('#fetch-username').val().trim();
-    const time_format = $('#fetch-time').val();
-    const $list = $('#fetched-games-list');
-    const $btn = $('#fetch-games-btn');
+document.getElementById('fetch-games-btn').addEventListener('click', async (e) => {
+    const platform = document.getElementById('fetch-platform').value;
+    const username = document.getElementById('fetch-username').value.trim();
+    const timeFormat = document.getElementById('fetch-time').value;
+    const btn = e.target;
+    
     if (!username) return alert("Please enter a username.");
-    $btn.text('Fetching...').prop('disabled', true);
-    $list.empty();
+    
+    btn.textContent = 'Fetching...';
+    btn.disabled = true;
+    elements.fetchGamesList.innerHTML = '';
+    
     try {
-        const res = await fetch(`/fetch_games?platform=${platform}&username=${username}&time_format=${time_format}`);
+        const res = await fetch(`/fetch_games?platform=${platform}&username=${username}&time_format=${timeFormat}`);
         if (!res.ok) throw new Error();
         const data = await res.json();
+        
         if (data.games && data.games.length > 0) {
             data.games.forEach(g => {
-                $list.append(`<div class="game-card" data-pgn="${encodeURIComponent(g.pgn)}"><strong>${g.white}</strong> vs <strong>${g.black}</strong> <span style="float:right;">${g.result}</span></div>`);
+                const card = document.createElement('div');
+                card.className = 'game-card';
+                card.innerHTML = `<strong>${g.white}</strong> vs <strong>${g.black}</strong> <span style="float:right;">${g.result}</span>`;
+                card.addEventListener('click', () => {
+                    elements.pgnInput.value = g.pgn;
+                    document.getElementById('load-pgn-btn').click();
+                });
+                elements.fetchGamesList.appendChild(card);
             });
-            $('.game-card').on('click', function() {
-                $('#pgn-input').val(decodeURIComponent($(this).attr('data-pgn')));
-                $('#load-pgn-btn').click();
-            });
-        } else $list.html('<div style="color: #f44336; font-size: 0.85rem;">No games found.</div>');
-    } catch (e) {
-        $list.html('<div style="color: #f44336; font-size: 0.85rem;">Error fetching games.</div>');
+        } else {
+            elements.fetchGamesList.innerHTML = '<div style="color: #f44336; font-size: 0.85rem;">No games found.</div>';
+        }
+    } catch (err) {
+        elements.fetchGamesList.innerHTML = '<div style="color: #f44336; font-size: 0.85rem;">Error fetching games.</div>';
     } finally {
-        $btn.text('Fetch Games').prop('disabled', false);
+        btn.textContent = 'Fetch Games';
+        btn.disabled = false;
     }
 });
 
-// ====== NEW DUAL ACCURACY LOGIC ======
-async function runOverallAccuracy(pgnString, $btnElement) {
-    if (!pgnString || pgnString.trim() === "") {
-        return alert("No moves found to analyze!");
-    }
-
-    const $results = $('#accuracy-results');
-    const originalText = $btnElement.text();
+async function runOverallAccuracy(pgnString, btnElement) {
+    if (!pgnString || pgnString.trim() === "") return alert("No moves found to analyze!");
     
-    $btnElement.text('Calculating...').prop('disabled', true);
-    $results.addClass('hidden');
+    const originalText = btnElement.textContent;
+    btnElement.textContent = 'Calculating...';
+    btnElement.disabled = true;
+    elements.accuracyResults.classList.add('hidden');
 
     try {
         const response = await fetch('/analyze_full_game', {
@@ -378,36 +362,38 @@ async function runOverallAccuracy(pgnString, $btnElement) {
         });
         
         const data = await response.json();
-        
         if (data.error) throw new Error(data.error);
-        if (data.detail) throw new Error(JSON.stringify(data.detail));
         if (!data.white || !data.black) throw new Error("Invalid response format.");
 
-        $('#acc-w-overall').text(data.white.overall);
-        $('#acc-w-op').text(data.white.opening);
-        $('#acc-w-mid').text(data.white.middle);
-        $('#acc-w-end').text(data.white.end);
+        document.getElementById('acc-w-overall').textContent = data.white.overall;
+        document.getElementById('acc-w-op').textContent = data.white.opening;
+        document.getElementById('acc-w-mid').textContent = data.white.middle;
+        document.getElementById('acc-w-end').textContent = data.white.end;
 
-        $('#acc-b-overall').text(data.black.overall);
-        $('#acc-b-op').text(data.black.opening);
-        $('#acc-b-mid').text(data.black.middle);
-        $('#acc-b-end').text(data.black.end);
+        document.getElementById('acc-b-overall').textContent = data.black.overall;
+        document.getElementById('acc-b-op').textContent = data.black.opening;
+        document.getElementById('acc-b-mid').textContent = data.black.middle;
+        document.getElementById('acc-b-end').textContent = data.black.end;
 
-        $results.removeClass('hidden');
+        elements.accuracyResults.classList.remove('hidden');
     } catch (e) {
         alert("Analysis failed: " + e.message);
     } finally {
-        $btnElement.text(originalText).prop('disabled', false);
+        btnElement.textContent = originalText;
+        btnElement.disabled = false;
     }
 }
 
-$('#calc-board-accuracy-btn').on('click', function() {
+document.getElementById('calc-board-accuracy-btn').addEventListener('click', function() {
     if (!game.pgn()) return alert("No moves played on the board yet!");
-    runOverallAccuracy(game.pgn(), $(this));
+    runOverallAccuracy(game.pgn(), this);
 });
 
-$('#calc-pgn-accuracy-btn').on('click', function() {
-    const pgnText = $('#pgn-input').val().trim();
+document.getElementById('calc-pgn-accuracy-btn').addEventListener('click', function() {
+    const pgnText = elements.pgnInput.value.trim();
     if (!pgnText) return alert("Please paste a PGN or fetch a game first!");
-    runOverallAccuracy(pgnText, $(this));
+    runOverallAccuracy(pgnText, this);
 });
+
+initBoard();
+updateStatus();
