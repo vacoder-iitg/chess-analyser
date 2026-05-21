@@ -29,6 +29,14 @@
                 <div id="board" class="cg-wrap brown cburnett" style="width: 100%; aspect-ratio: 1; border-radius: 5px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></div>
                 
                 <div id="board-bottom-player" class="board-player">White: -</div>
+                
+                <div class="controls board-controls">
+                    <button id="reset-btn" class="btn icon-btn" title="New Game"><span class="material-icons">fiber_new</span></button>
+                    <button id="prev-btn" class="btn icon-btn" title="Backward"><span class="material-icons">fast_rewind</span></button>
+                    <button id="next-btn" class="btn icon-btn" title="Forward"><span class="material-icons">fast_forward</span></button>
+                    <button id="flip-btn" class="btn icon-btn" title="Flip Board"><span class="material-icons">swap_vert</span></button>
+                    <button id="threats-btn" class="btn icon-btn" style="background-color: #8b0000;" title="Threats"><span class="material-icons">warning</span></button>
+                </div>
             </div>
 
             <div class="analysis-panel">
@@ -83,13 +91,6 @@
                     </div>
                 </div>
 
-                <div class="controls">
-                    <button id="reset-btn" class="btn">New</button>
-                    <button id="prev-btn" class="btn">Prev</button>
-                    <button id="next-btn" class="btn">Next</button>
-                    <button id="flip-btn" class="btn">Flip</button>
-                    <button id="threats-btn" class="btn" style="background-color: #8b0000;">Threats</button>
-                </div>
 
                 <div class="pgn-input-section">
                     <textarea id="pgn-input" class="pgn-textarea" placeholder="Paste PGN here to load a game..."></textarea>

@@ -138,6 +138,37 @@ body {
     cursor: not-allowed;
 }
 
+.icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(4px, 2vw, 8px);
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-primary);
+    box-sizing: border-box;
+    flex: 1;
+}
+
+.icon-btn .material-icons {
+    font-size: clamp(18px, 4.5vw, 24px);
+}
+
+.board-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: clamp(4px, 1.5vw, 8px);
+    margin-top: 10px;
+    width: 100%;
+    background-color: var(--bg-panel);
+    padding: clamp(6px, 2vw, 10px);
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-sizing: border-box;
+}
+
 .loading {
     display: flex;
     align-items: center;
@@ -269,24 +300,29 @@ body {
     height: 12.5%;
     pointer-events: none;
     z-index: 10;
+    container-type: inline-size;
 }
 
 .annotation-badge {
     position: absolute;
-    top: -15%;
-    left: -15%;
+    top: -12%;
+    left: -12%;
     width: 35%;
     height: 35%;
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     color: white;
     font-weight: 900;
-    font-size: clamp(12px, 2vw, 24px);
+    font-size: clamp(10px, 2vw, 16px) !important;
+    line-height: 1;
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     pointer-events: none;
-    border: 2px solid white;
+    border: 1px solid white;
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
 }
 
 .badge-brilliant { background-color: #00bcd4; }
