@@ -113,15 +113,15 @@ const analysisCache = new Map();
 let currentAbortController = null;
 
 const categoryStyles = {
-    'Brilliant': { class: 'badge-brilliant', text: '!!' },
-    'Great Move': { class: 'badge-great', text: '!' },
-    'Best Move': { class: 'badge-best', text: '★' },
-    'Excellent': { class: 'badge-excellent', text: '✓' },
-    'Good': { class: 'badge-good', text: '✓' },
-    'Book Move': { class: 'badge-book', text: '📖' },
-    'Inaccuracy': { class: 'badge-inaccuracy', text: '?!' },
-    'Mistake': { class: 'badge-mistake', text: '?' },
-    'Blunder': { class: 'badge-blunder', text: '??' },
+    'Brilliant': { class: 'badge-brilliant', icon: 'verified' },
+    'Great Move': { class: 'badge-great', icon: 'stars' },
+    'Best Move': { class: 'badge-best', icon: 'star' },
+    'Excellent': { class: 'badge-excellent', icon: 'thumb_up' },
+    'Good': { class: 'badge-good', icon: 'check' },
+    'Book Move': { class: 'badge-book', icon: 'menu_book' },
+    'Inaccuracy': { class: 'badge-inaccuracy', icon: 'priority_high' },
+    'Mistake': { class: 'badge-mistake', icon: 'question_mark' },
+    'Blunder': { class: 'badge-blunder', icon: 'close' },
 };
 
 function drawBadge(square, category) {
@@ -147,7 +147,18 @@ function drawBadge(square, category) {
     const file = square.charCodeAt(0) - 97;
     const rank = parseInt(square[1]) - 1;
 
-    const orientation = cg.state.orientation;
+    // Use game turn to get orientation since updatePlayerOrientation() syncs them
+    // Wait, game.turn() gives the NEXT player's turn. 
+    // The orientation is updated in updatePlayerOrientation() which does: orientation = game.turn() === 'w' ? 'white' : 'black';
+    let orientation = 'white';
+    try {
+        if (cg && cg.state && cg.state.orientation) {
+            orientation = cg.state.orientation;
+        } else {
+            orientation = game.turn() === 'w' ? 'white' : 'black';
+        }
+    } catch(e) {}
+
     let leftPct, topPct;
     if (orientation === 'white') {
         leftPct = file * 12.5;
@@ -163,8 +174,8 @@ function drawBadge(square, category) {
     squareDiv.style.top = topPct + '%';
 
     const badge = document.createElement('div');
-    badge.className = `annotation-badge ${style.class}`;
-    badge.textContent = style.text;
+    badge.className = `annotation-badge material-icons ${style.class}`;
+    badge.textContent = style.icon;
 
     squareDiv.appendChild(badge);
     layer.appendChild(squareDiv);

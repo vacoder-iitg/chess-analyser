@@ -273,8 +273,8 @@ body {
 
 .annotation-badge {
     position: absolute;
-    top: -5%;
-    right: -5%;
+    top: -15%;
+    left: -15%;
     width: 35%;
     height: 35%;
     border-radius: 50%;
@@ -283,10 +283,9 @@ body {
     justify-content: center;
     color: white;
     font-weight: 900;
-    font-size: clamp(10px, 1.8vw, 20px);
+    font-size: clamp(12px, 2vw, 24px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     pointer-events: none;
-    font-family: 'Inter', sans-serif;
     border: 2px solid white;
 }
 
