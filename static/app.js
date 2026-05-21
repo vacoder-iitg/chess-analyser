@@ -112,6 +112,64 @@ let currentAnalysisFen = null;
 const analysisCache = new Map();
 let currentAbortController = null;
 
+const categoryStyles = {
+    'Brilliant': { class: 'badge-brilliant', text: '!!' },
+    'Great Move': { class: 'badge-great', text: '!' },
+    'Best Move': { class: 'badge-best', text: '★' },
+    'Excellent': { class: 'badge-excellent', text: '✓' },
+    'Good': { class: 'badge-good', text: '✓' },
+    'Book Move': { class: 'badge-book', text: '📖' },
+    'Inaccuracy': { class: 'badge-inaccuracy', text: '?!' },
+    'Mistake': { class: 'badge-mistake', text: '?' },
+    'Blunder': { class: 'badge-blunder', text: '??' },
+};
+
+function drawBadge(square, category) {
+    let layer = document.getElementById('annotations-layer');
+    if (!layer) {
+        layer = document.createElement('div');
+        layer.id = 'annotations-layer';
+        layer.style.position = 'absolute';
+        layer.style.top = '0';
+        layer.style.left = '0';
+        layer.style.width = '100%';
+        layer.style.height = '100%';
+        layer.style.pointerEvents = 'none';
+        layer.style.zIndex = '9';
+        const cgWrap = document.getElementById('board');
+        if (cgWrap) cgWrap.appendChild(layer);
+    }
+    layer.innerHTML = ''; // clear previous
+
+    if (!square || !category || !categoryStyles[category]) return;
+
+    const style = categoryStyles[category];
+    const file = square.charCodeAt(0) - 97;
+    const rank = parseInt(square[1]) - 1;
+
+    const orientation = cg.state.orientation;
+    let leftPct, topPct;
+    if (orientation === 'white') {
+        leftPct = file * 12.5;
+        topPct = (7 - rank) * 12.5;
+    } else {
+        leftPct = (7 - file) * 12.5;
+        topPct = rank * 12.5;
+    }
+
+    const squareDiv = document.createElement('div');
+    squareDiv.className = 'annotation-square';
+    squareDiv.style.left = leftPct + '%';
+    squareDiv.style.top = topPct + '%';
+
+    const badge = document.createElement('div');
+    badge.className = `annotation-badge ${style.class}`;
+    badge.textContent = style.text;
+
+    squareDiv.appendChild(badge);
+    layer.appendChild(squareDiv);
+}
+
 function displayAnalysis(data, fen) {
     if (game.fen() !== fen) return;
 
@@ -137,9 +195,17 @@ function displayAnalysis(data, fen) {
         
         elements.classification.innerHTML = catHTML;
         elements.classification.style.color = catColor;
+        
+        // Draw badge for the last move
+        const history = game.history({ verbose: true });
+        if (history.length > 0) {
+            const lastMove = history[history.length - 1];
+            drawBadge(lastMove.to, data.category);
+        }
     } else {
         elements.classification.innerHTML = '-';
         elements.classification.style.color = '#e0e0e0';
+        drawBadge(null, null); // clear
     }
 
     let evalText = '0.00';
@@ -238,6 +304,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     elements.classification.innerHTML = '-';
     elements.classification.style.color = '#e0e0e0';
     elements.accuracyResults.classList.add('hidden');
+    drawBadge(null, null);
 });
 
 document.getElementById('prev-btn').addEventListener('click', () => {
@@ -252,6 +319,9 @@ document.getElementById('prev-btn').addEventListener('click', () => {
         elements.evalScore.textContent = '0.00';
         elements.evalFill.style.width = '50%';
         elements.bestMove.textContent = '-';
+        elements.classification.innerHTML = '-';
+        elements.classification.style.color = '#e0e0e0';
+        drawBadge(null, null);
     }
 });
 
