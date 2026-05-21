@@ -22,7 +22,7 @@ def analyze_full_game(pgn_string, stockfish_path, depth=15, time_limit=0.5):
             return {"error": "Failed to parse PGN."}
 
         engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-        engine.configure({"Threads": 2, "Hash": 128})
+        engine.configure({"Threads": 1, "Hash": 16})
         board = game.board()
         limit = chess.engine.Limit(time=time_limit, depth=depth)
 

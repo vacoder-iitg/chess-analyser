@@ -45,8 +45,8 @@ async def startup_event():
     engine_path = get_engine_path()
     try:
         transport, engine = await chess.engine.popen_uci(engine_path)
-        await engine.configure({"Threads": 2, "Hash": 128})
-    except Exception:
+        await engine.configure({"Threads": 1, "Hash": 32})
+    except Exception as e:
         engine = None
 
 class EvaluationRequest(BaseModel):

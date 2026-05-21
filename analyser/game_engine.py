@@ -13,7 +13,7 @@ def calculate_move_accuracy(wp_before, wp_after):
 
 def analyze_game(game, stockfish_path):
     engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-    engine.configure({"Threads": 8, "Hash": 512})
+    engine.configure({"Threads": 1, "Hash": 16})
     board = game.board()
     result = game.headers.get("Result", "*")
     
