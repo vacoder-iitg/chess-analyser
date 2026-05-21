@@ -6,24 +6,33 @@ const elements = {
     opening: document.getElementById('opening'),
     evalScore: document.getElementById('eval-score'),
     evalFill: document.getElementById('eval-fill'),
-    bestMove: document.getElementById('best-move'),
-    loading: document.getElementById('loading'),
-    pgn: document.getElementById('pgn'),
     classification: document.getElementById('classification'),
+    bestMove: document.getElementById('best-move'),
+    loading: document.getElementById('eval-loading'),
+    pgnGrid: document.getElementById('pgn-grid'),
+    deviationBanner: document.getElementById('deviation-banner'),
+    returnMainlineBtn: document.getElementById('return-mainline-btn'),
+    copyPgnBtn: document.getElementById('copy-pgn-btn'),
     accuracyResults: document.getElementById('accuracy-results'),
+    engineDepth: document.getElementById('engine-depth'),
+    engineTime: document.getElementById('engine-time'),
     topPlayer: document.getElementById('board-top-player'),
     bottomPlayer: document.getElementById('board-bottom-player'),
     pgnInput: document.getElementById('pgn-input'),
     fetchGamesList: document.getElementById('fetched-games-list'),
     plotGraphBtn: document.getElementById('plot-graph-btn'),
     plotLoading: document.getElementById('plot-loading'),
-    analysisPlot: document.getElementById('analysis-plot')
+    evalChart: document.getElementById('eval-chart'),
+    metricsChart: document.getElementById('metrics-chart')
 };
 
 let game = new Chess();
 let board = null; // Chessground instance
 let currentFullPGN = "";
 let loadedGameMoves = [];
+let variationMoves = [];
+let isExploringVariation = false;
+let deviationIndex = null;
 let currentMoveIndex = 0;
 let prevCp = null;
 let prevMate = null;
@@ -57,16 +66,39 @@ function initBoard() {
 }
 
 function onDrop(orig, dest) {
-    const move = game.move({ from: orig, to: dest, promotion: 'q' });
+    const moves = game.moves({ verbose: true });
+    let chosenMove = moves.find(m => m.from === orig && m.to === dest && (!m.promotion || m.promotion === 'q'));
     
-    if (move === null) {
+    if (!chosenMove) {
         board.set({ fen: game.fen() }); // Snapback
         return;
     }
     
-    loadedGameMoves = [];
-    currentMoveIndex = 0;
-    currentFullPGN = game.pgn();
+    let moveSan = chosenMove.san;
+
+    if (!isExploringVariation && loadedGameMoves.length > 0 && currentMoveIndex < loadedGameMoves.length) {
+        if (moveSan !== loadedGameMoves[currentMoveIndex]) {
+            // Diverged!
+            isExploringVariation = true;
+            deviationIndex = currentMoveIndex;
+            game.move(moveSan);
+            variationMoves = game.history();
+            currentMoveIndex++;
+        } else {
+            // Matched mainline
+            game.move(moveSan);
+            currentMoveIndex++;
+        }
+    } else {
+        game.move(moveSan);
+        if (isExploringVariation) {
+            variationMoves = game.history();
+        } else {
+            // No loaded game, just regular play
+            loadedGameMoves = game.history();
+        }
+        currentMoveIndex++;
+    }
     
     updateBoardState();
     debouncedAnalyzePosition();
@@ -97,8 +129,68 @@ function updateStatus() {
     }
     
     elements.status.textContent = statusHTML;
-    elements.pgn.textContent = game.pgn() || '-';
-    elements.pgn.scrollTop = elements.pgn.scrollHeight;
+    renderPGNGrid();
+}
+
+function renderPGNGrid() {
+    elements.pgnGrid.innerHTML = '';
+    
+    let movesToRender = [];
+    if (!isExploringVariation && loadedGameMoves.length > 0) {
+        movesToRender = loadedGameMoves;
+    } else if (isExploringVariation) {
+        movesToRender = variationMoves;
+    } else {
+        movesToRender = loadedGameMoves;
+    }
+
+    if (isExploringVariation) {
+        elements.deviationBanner.classList.remove('hidden');
+    } else {
+        elements.deviationBanner.classList.add('hidden');
+    }
+
+    let rowDiv = null;
+    for (let i = 0; i < movesToRender.length; i++) {
+        if (i % 2 === 0) {
+            rowDiv = document.createElement('div');
+            rowDiv.className = 'pgn-row';
+            
+            const numDiv = document.createElement('div');
+            numDiv.className = 'pgn-num';
+            numDiv.textContent = Math.floor(i/2) + 1;
+            rowDiv.appendChild(numDiv);
+            
+            elements.pgnGrid.appendChild(rowDiv);
+        }
+
+        const moveDiv = document.createElement('div');
+        moveDiv.className = 'pgn-move';
+        
+        if (isExploringVariation && deviationIndex !== null && i >= deviationIndex) {
+            moveDiv.classList.add('variation');
+        }
+        
+        if (i === currentMoveIndex - 1) {
+            moveDiv.classList.add('active');
+        }
+        moveDiv.textContent = movesToRender[i];
+        
+        moveDiv.addEventListener('click', () => {
+            if (isExploringVariation) {
+                jumpToMoveUniversal(i, variationMoves);
+            } else {
+                jumpToMoveUniversal(i, loadedGameMoves);
+            }
+        });
+
+        if (rowDiv) rowDiv.appendChild(moveDiv);
+    }
+    
+    const activeElement = elements.pgnGrid.querySelector('.active');
+    if (activeElement) {
+        activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 }
 
 function updatePlayerOrientation() {
@@ -147,13 +239,10 @@ function drawBadge(square, category) {
     const file = square.charCodeAt(0) - 97;
     const rank = parseInt(square[1]) - 1;
 
-    // Use game turn to get orientation since updatePlayerOrientation() syncs them
-    // Wait, game.turn() gives the NEXT player's turn. 
-    // The orientation is updated in updatePlayerOrientation() which does: orientation = game.turn() === 'w' ? 'white' : 'black';
     let orientation = 'white';
     try {
-        if (cg && cg.state && cg.state.orientation) {
-            orientation = cg.state.orientation;
+        if (board && board.state && board.state.orientation) {
+            orientation = board.state.orientation;
         } else {
             orientation = game.turn() === 'w' ? 'white' : 'black';
         }
@@ -233,6 +322,8 @@ function displayAnalysis(data, fen) {
     
     elements.evalScore.textContent = evalText;
     elements.evalFill.style.width = `${evalWidth}%`;
+    elements.evalScore.style.opacity = '1';
+    elements.evalFill.style.opacity = '1';
 
     let expectedBestMove = data.best_move || '-';
     elements.bestMove.textContent = expectedBestMove;
@@ -244,8 +335,19 @@ function debouncedAnalyzePosition() {
     elements.classification.innerHTML = '-';
     elements.classification.style.color = '#e0e0e0';
     elements.bestMove.textContent = '-';
+    elements.evalScore.style.opacity = '0.5';
+    elements.evalFill.style.opacity = '0.5';
     analysisTimeout = setTimeout(() => analyzePosition(), 400);
 }
+
+elements.engineDepth.addEventListener('change', () => {
+    analysisCache.clear();
+    debouncedAnalyzePosition();
+});
+elements.engineTime.addEventListener('change', () => {
+    analysisCache.clear();
+    debouncedAnalyzePosition();
+});
 
 async function analyzePosition() {
     const fen = game.fen();
@@ -257,29 +359,26 @@ async function analyzePosition() {
         return;
     }
     
-    let tempPrevCp = null;
-    let tempPrevMate = null;
+    let tempPrevFen = null;
     const history = game.history();
     if (history.length > 0) {
         let tempGame = new Chess();
         tempGame.load_pgn(game.pgn());
         tempGame.undo();
-        let pFen = tempGame.fen();
-        if (analysisCache.has(pFen)) {
-            let pData = analysisCache.get(pFen);
-            tempPrevCp = pData.raw_cp !== undefined ? pData.raw_cp : null;
-            tempPrevMate = pData.mate !== undefined ? pData.mate : null;
-        }
+        tempPrevFen = tempGame.fen();
     }
 
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     
     try {
+        const depth = parseInt(elements.engineDepth.value) || 15;
+        const timeLimit = parseFloat(elements.engineTime.value) || 0.5;
+        
         const response = await fetch('/evaluate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fen, prev_cp: tempPrevCp, prev_mate: tempPrevMate }),
+            body: JSON.stringify({ fen, prev_fen: tempPrevFen, depth: depth, time: timeLimit }),
             signal: currentAbortController.signal
         });
         
@@ -299,6 +398,9 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     game.reset();
     currentFullPGN = "";
     loadedGameMoves = [];
+    isExploringVariation = false;
+    variationMoves = [];
+    deviationIndex = null;
     currentMoveIndex = 0;
     prevCp = null;
     prevMate = null;
@@ -318,30 +420,35 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     drawBadge(null, null);
 });
 
-document.getElementById('prev-btn').addEventListener('click', () => {
-    if (game.history().length === 0) return;
-    game.undo();
-    if (currentMoveIndex > 0) currentMoveIndex--;
+function jumpToMoveUniversal(index, sourceMoves) {
+    if (sourceMoves.length === 0 || index >= sourceMoves.length) {
+        if (index === -1) {
+            game.reset();
+            currentMoveIndex = 0;
+        }
+    } else {
+        game.reset();
+        for (let i = 0; i <= index; i++) {
+            game.move(sourceMoves[i]);
+        }
+        currentMoveIndex = index + 1;
+    }
     
     updateBoardState();
-    if (game.history().length > 0) debouncedAnalyzePosition();
-    else {
-        elements.opening.textContent = 'Starting Position';
-        elements.evalScore.textContent = '0.00';
-        elements.evalFill.style.width = '50%';
-        elements.bestMove.textContent = '-';
-        elements.classification.innerHTML = '-';
-        elements.classification.style.color = '#e0e0e0';
-        drawBadge(null, null);
+    debouncedAnalyzePosition();
+}
+
+document.getElementById('prev-btn').addEventListener('click', () => {
+    const source = isExploringVariation ? variationMoves : loadedGameMoves;
+    if (currentMoveIndex > 0) {
+        jumpToMoveUniversal(currentMoveIndex - 2, source);
     }
 });
 
 document.getElementById('next-btn').addEventListener('click', () => {
-    if (currentMoveIndex < loadedGameMoves.length) {
-        game.move(loadedGameMoves[currentMoveIndex]);
-        currentMoveIndex++;
-        updateBoardState();
-        debouncedAnalyzePosition();
+    const source = isExploringVariation ? variationMoves : loadedGameMoves;
+    if (currentMoveIndex < source.length) {
+        jumpToMoveUniversal(currentMoveIndex, source);
     }
 });
 
@@ -367,6 +474,9 @@ document.getElementById('load-pgn-btn').addEventListener('click', () => {
     if (tempGame.load_pgn(pgnText)) {
         currentFullPGN = tempGame.pgn();
         loadedGameMoves = tempGame.history();
+        isExploringVariation = false;
+        variationMoves = [];
+        deviationIndex = null;
         currentMoveIndex = 0;
         
         const headers = tempGame.header();
@@ -439,10 +549,13 @@ async function runOverallAccuracy(pgnString, btnElement) {
     elements.accuracyResults.classList.add('hidden');
 
     try {
+        const depth = parseInt(elements.engineDepth.value) || 15;
+        const timeLimit = parseFloat(elements.engineTime.value) || 0.5;
+        
         const response = await fetch('/analyze_full_game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pgn: pgnString })
+            body: JSON.stringify({ pgn: pgnString, depth: depth, time_limit: timeLimit })
         });
         
         const data = await response.json();
@@ -479,15 +592,52 @@ document.getElementById('calc-pgn-accuracy-btn').addEventListener('click', funct
     runOverallAccuracy(pgnText, this);
 });
 
+let evalChartInstance = null;
+let metricsChartInstance = null;
+
+function jumpToMove(index) {
+    if (isExploringVariation) {
+        // If they click on graph, they expect to jump to the mainline graph
+        isExploringVariation = false;
+        deviationIndex = null;
+    }
+    jumpToMoveUniversal(index, loadedGameMoves);
+}
+
+elements.returnMainlineBtn.addEventListener('click', () => {
+    if (deviationIndex !== null) {
+        isExploringVariation = false;
+        jumpToMoveUniversal(deviationIndex - 1, loadedGameMoves);
+        deviationIndex = null;
+    }
+});
+
+elements.copyPgnBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(game.pgn()).then(() => {
+        const originalIcon = elements.copyPgnBtn.innerHTML;
+        elements.copyPgnBtn.innerHTML = '<span class="material-icons" style="font-size: 14px; color: #4caf50;">check</span>';
+        setTimeout(() => {
+            elements.copyPgnBtn.innerHTML = originalIcon;
+        }, 2000);
+    });
+});
+
 elements.plotGraphBtn.addEventListener('click', async function() {
     const pgnText = elements.pgnInput.value.trim() || game.pgn();
     if (!pgnText) return alert("Please paste a PGN, fetch a game, or play some moves first!");
+    
+    // Ensure loadedGameMoves is up to date with the plotted PGN
+    let tempGame = new Chess();
+    if (tempGame.load_pgn(pgnText)) {
+        loadedGameMoves = tempGame.history();
+    }
     
     const originalText = this.textContent;
     this.textContent = 'Generating plot...';
     this.disabled = true;
     elements.plotLoading.classList.remove('hidden');
-    elements.analysisPlot.style.display = 'none';
+    elements.evalChart.style.display = 'none';
+    elements.metricsChart.style.display = 'none';
 
     try {
         const response = await fetch('/plot_game', {
@@ -499,10 +649,194 @@ elements.plotGraphBtn.addEventListener('click', async function() {
         const data = await response.json();
         if (data.detail) throw new Error("Validation Error: " + JSON.stringify(data.detail));
         if (data.error) throw new Error(data.error);
-        if (!data.image) throw new Error("Invalid response format. Data received: " + JSON.stringify(data).substring(0, 100));
+        if (!data.metrics) throw new Error("Invalid response format.");
 
-        elements.analysisPlot.src = "data:image/png;base64," + data.image;
-        elements.analysisPlot.style.display = 'block';
+        const metrics = data.metrics;
+        const timeline_fragility = [];
+        const timeline_think_time = [];
+        const wp_timeline = metrics.absolute_white_wp_timeline || [];
+        const labels = [];
+        
+        const white_f = metrics.white.fragility_history || [];
+        const black_f = metrics.black.fragility_history || [];
+        const white_t = metrics.white.human_think_times || [];
+        const black_t = metrics.black.human_think_times || [];
+        
+        let w_idx = 0, b_idx = 0;
+        const total_turns = white_f.length + black_f.length;
+        
+        for (let i = 0; i < total_turns; i++) {
+            if (i % 2 === 0 && w_idx < white_f.length) {
+                timeline_fragility.push(white_f[w_idx]);
+                timeline_think_time.push(white_t[w_idx]);
+                labels.push(`${w_idx + 1}W`);
+                w_idx++;
+            } else if (b_idx < black_f.length) {
+                timeline_fragility.push(black_f[b_idx]);
+                timeline_think_time.push(black_t[b_idx]);
+                labels.push(`${b_idx + 1}B`);
+                b_idx++;
+            }
+        }
+        
+        const clipped_wp = wp_timeline.slice(0, labels.length);
+        
+        // Define phase annotation lines based on available moves
+        const annotations = {
+            zeroLine: {
+                type: 'line',
+                yMin: 50,
+                yMax: 50,
+                borderColor: 'rgba(255, 255, 255, 0.4)',
+                borderWidth: 1,
+                borderDash: [5, 5],
+                label: { display: true, content: '0', position: 'start', backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff', font: {size: 10} }
+            }
+        };
+        
+        if (labels.length > 30) {
+            annotations.openingLine = {
+                type: 'line',
+                xMin: 30,
+                xMax: 30,
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                borderWidth: 1,
+                label: { display: true, content: 'Middlegame', position: 'start', rotation: 90, backgroundColor: 'transparent', color: 'rgba(255,255,255,0.4)', yAdjust: 40 }
+            };
+        }
+        
+        if (labels.length > 80) {
+            annotations.endgameLine = {
+                type: 'line',
+                xMin: 80,
+                xMax: 80,
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                borderWidth: 1,
+                label: { display: true, content: 'Endgame', position: 'start', rotation: 90, backgroundColor: 'transparent', color: 'rgba(255,255,255,0.4)', yAdjust: 40 }
+            };
+        }
+
+        if (evalChartInstance) evalChartInstance.destroy();
+        if (metricsChartInstance) metricsChartInstance.destroy();
+
+        const ctxEval = elements.evalChart.getContext('2d');
+        const ctxMetrics = elements.metricsChart.getContext('2d');
+        
+        elements.evalChart.style.display = 'block';
+        elements.metricsChart.style.display = 'block';
+
+        const commonOptions = {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            onClick: (e, activeElements) => {
+                if (activeElements.length > 0) {
+                    const idx = activeElements[0].index;
+                    jumpToMove(idx);
+                }
+            },
+            plugins: {
+                legend: { labels: { color: '#e0e0e0' } },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    callbacks: {
+                        title: (context) => {
+                            const index = context[0].dataIndex;
+                            const move = loadedGameMoves[index];
+                            return `${context[0].label}: ${move || ''}`;
+                        }
+                    }
+                }
+            }
+        };
+
+        evalChartInstance = new Chart(ctxEval, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Advantage',
+                    data: clipped_wp,
+                    borderColor: '#ff6b00',
+                    backgroundColor: 'rgba(150, 150, 150, 0.4)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    yAxisID: 'y',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    x: { ticks: { color: '#aaaaaa', maxTicksLimit: 20 }, grid: { color: '#333333' } },
+                    y: {
+                        type: 'linear', display: true, position: 'left', min: 0, max: 100,
+                        title: { display: false }, grid: { color: '#333333' }
+                    }
+                },
+                plugins: {
+                    ...commonOptions.plugins,
+                    annotation: { annotations: annotations }
+                }
+            }
+        });
+
+        metricsChartInstance = new Chart(ctxMetrics, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Fragility (Tension)',
+                        data: timeline_fragility,
+                        borderColor: '#d62728',
+                        backgroundColor: '#d62728',
+                        yAxisID: 'y1',
+                        borderWidth: 1.5,
+                        pointRadius: 1,
+                        pointHoverRadius: 3
+                    },
+                    {
+                        label: 'Think Time (sec)',
+                        data: timeline_think_time,
+                        borderColor: '#1f77b4',
+                        backgroundColor: '#1f77b4',
+                        yAxisID: 'y2',
+                        borderDash: [5, 5],
+                        borderWidth: 1.5,
+                        pointStyle: 'rect',
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                    }
+                ]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    x: { ticks: { color: '#aaaaaa', maxTicksLimit: 20 }, grid: { color: '#333333' } },
+                    y1: {
+                        type: 'linear', display: true, position: 'left', min: 0,
+                        title: { display: true, text: 'Tension', color: '#d62728' }, grid: { color: '#333333' }
+                    },
+                    y2: {
+                        type: 'linear', display: true, position: 'right', min: 0,
+                        title: { display: true, text: 'Time (s)', color: '#1f77b4' }, grid: { drawOnChartArea: false }
+                    }
+                },
+                plugins: {
+                    ...commonOptions.plugins,
+                    annotation: {
+                        annotations: {
+                            ...(labels.length > 30 ? { openingLine: annotations.openingLine } : {}),
+                            ...(labels.length > 80 ? { endgameLine: annotations.endgameLine } : {})
+                        }
+                    }
+                }
+            }
+        });
     } catch (e) {
         alert("Plot generation failed: " + e.message);
     } finally {

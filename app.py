@@ -40,11 +40,14 @@ async def startup_event():
 
 class EvaluationRequest(BaseModel):
     fen: str
-    prev_cp: Optional[float] = None
-    prev_mate: Optional[int] = None
+    prev_fen: Optional[str] = None
+    depth: Optional[int] = 15
+    time: Optional[float] = 0.5
 
 class FullGameAnalysisRequest(BaseModel):
     pgn: str
+    depth: Optional[int] = 15
+    time_limit: Optional[float] = 0.5
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
@@ -82,17 +85,16 @@ def format_evaluation_response(raw_eval: dict, req: EvaluationRequest, board: ch
         elif acc >= 50: cat = "Mistake"
         else: cat = "Blunder"
         response_data["category"] = cat
-    return response_data
-
 @app.post("/evaluate")
 async def evaluate_position(req: EvaluationRequest):
     global current_analysis_task
     fen = req.fen
+    prev_fen = req.prev_fen
     board = chess.Board(fen)
     opening_name = detector.get_name(board) or "Unknown Opening"
     
-    if fen in evaluation_cache: return format_evaluation_response(evaluation_cache[fen], req, board, opening_name)
-    if not engine: return format_evaluation_response({"score": 0.0, "mate": None, "best_move": None, "raw_cp": 0}, req, board, opening_name)
+    if not engine: 
+        return {"evaluation": "0.00", "mate": None, "best_move": "-", "category": None, "accuracy": None, "opening": opening_name}
     
     if current_analysis_task and not current_analysis_task.done():
         current_analysis_task.cancel()
@@ -102,22 +104,77 @@ async def evaluate_position(req: EvaluationRequest):
             pass
 
     async def run_analysis():
-        info = await engine.analyse(board, chess.engine.Limit(time=2.0))
-        cp_after = score = 0.0
-        mate = best_move = None
-        if "score" in info:
-            score_val = info["score"].white()
-            cp_after = info["score"].pov(chess.WHITE).score(mate_score=10000)
-            if score_val.is_mate(): mate = score_val.mate()
-            else: score = score_val.score() / 100.0
-        if "pv" in info and len(info["pv"]) > 0: best_move = board.san(info["pv"][0])
-        return {"score": score, "mate": mate, "best_move": best_move, "raw_cp": cp_after}
+        cache_key = f"{fen}_{req.depth}_{req.time}"
+        if cache_key in evaluation_cache:
+            info_current = evaluation_cache[cache_key]
+        else:
+            info = await engine.analyse(board, chess.engine.Limit(time=req.time, depth=req.depth))
+            cp_after = score = 0.0
+            mate = best_move = None
+            if "score" in info:
+                score_val = info["score"].white()
+                cp_after = info["score"].pov(chess.WHITE).score(mate_score=10000)
+                if score_val.is_mate(): mate = score_val.mate()
+                else: score = score_val.score() / 100.0
+            if "pv" in info and len(info["pv"]) > 0: best_move = board.san(info["pv"][0])
+            info_current = {"score": score, "mate": mate, "best_move": best_move, "raw_cp": cp_after}
+            evaluation_cache[cache_key] = info_current
+
+        score = info_current["score"]
+        mate = info_current["mate"]
+        best_move = info_current["best_move"]
+        cp_after = info_current["raw_cp"]
+        
+        category = None
+        accuracy = None
+        
+        if prev_fen:
+            if opening_name != "Unknown Opening":
+                category = "Book Move"
+                accuracy = 100.0
+            else:
+                prev_cache_key = f"{prev_fen}_{req.depth}_{req.time}"
+                if prev_cache_key in evaluation_cache:
+                    prev_cp = evaluation_cache[prev_cache_key]["raw_cp"]
+                else:
+                    prev_board = chess.Board(prev_fen)
+                    info_prev = await engine.analyse(prev_board, chess.engine.Limit(time=req.time, depth=req.depth))
+                    prev_cp = info_prev["score"].pov(chess.WHITE).score(mate_score=10000)
+                    evaluation_cache[prev_cache_key] = {
+                        "score": info_prev["score"].white().score(mate_score=10000)/100.0,
+                        "mate": info_prev["score"].white().mate(),
+                        "best_move": prev_board.san(info_prev["pv"][0]) if "pv" in info_prev and info_prev["pv"] else None,
+                        "raw_cp": prev_cp
+                    }
+                
+                player = "black" if board.turn == chess.WHITE else "white"
+                wp_before = cp_to_win_prob(prev_cp)
+                wp_after = cp_to_win_prob(cp_after)
+                
+                acc = calculate_move_accuracy(wp_before, wp_after) if player == "white" else calculate_move_accuracy(100 - wp_before, 100 - wp_after)
+                accuracy = acc
+                if acc >= 98: category = "Best Move"
+                elif acc >= 90: category = "Excellent"
+                elif acc >= 80: category = "Good"
+                elif acc >= 70: category = "Inaccuracy"
+                elif acc >= 50: category = "Mistake"
+                else: category = "Blunder"
+
+        return {
+            "score": score,
+            "raw_cp": cp_after,
+            "evaluation": f"M{mate}" if mate is not None else f"{score:+.2f}",
+            "mate": mate,
+            "best_move": best_move or "-",
+            "category": category,
+            "accuracy": accuracy,
+            "opening": opening_name,
+            "threats": get_threats(board)
+        }
 
     current_analysis_task = asyncio.create_task(run_analysis())
     try:
-        raw_eval = await current_analysis_task
-        evaluation_cache[fen] = raw_eval
-        return format_evaluation_response(raw_eval, req, board, opening_name)
+        return await current_analysis_task
     except asyncio.CancelledError:
         return {"score": 0.0, "mate": None, "best_move": None, "opening": opening_name, "category": "Interrupted", "accuracy": None, "raw_cp": 0, "threats": []}
 
@@ -125,7 +182,7 @@ async def evaluate_position(req: EvaluationRequest):
 async def handle_full_game_analysis(req: FullGameAnalysisRequest):
     engine_path = os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish.exe')
     try:
-        results = await asyncio.to_thread(analyze_full_game, req.pgn, engine_path)
+        results = await asyncio.to_thread(analyze_full_game, req.pgn, engine_path, req.depth, req.time_limit)
         if not results:
             return {"error": "Invalid PGN"}
         return results
@@ -141,10 +198,9 @@ async def handle_plot_game(req: FullGameAnalysisRequest):
             if not game:
                 return {"error": "Failed to parse PGN."}
             data, result = analyze_game(game, engine_path)
-            b64_img = plot_game_metrics(data, game_id="User Game")
-            if not b64_img:
-                return {"error": "Not enough moves to plot."}
-            return {"image": b64_img}
+            
+            # Remove plotter.py usage and return raw JSON data for Chart.js
+            return {"metrics": data}
             
         results = await asyncio.to_thread(generate_plot)
         return results

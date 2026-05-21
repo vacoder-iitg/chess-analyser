@@ -15,7 +15,7 @@ def calculate_move_accuracy(wp_before, wp_after):
 def safe_mean(lst):
     return round(statistics.mean(lst), 1) if lst else 0.0
 
-def analyze_full_game(pgn_string, stockfish_path):
+def analyze_full_game(pgn_string, stockfish_path, depth=15, time_limit=0.5):
     try:
         game = chess.pgn.read_game(io.StringIO(pgn_string))
         if not game:
@@ -24,7 +24,7 @@ def analyze_full_game(pgn_string, stockfish_path):
         engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
         engine.configure({"Threads": 2, "Hash": 128})
         board = game.board()
-        limit = chess.engine.Limit(time=0.1)
+        limit = chess.engine.Limit(time=time_limit, depth=depth)
 
         game_data = {
             p: {"accs": [], "opening": [], "middle": [], "end": []} for p in ["white", "black"]

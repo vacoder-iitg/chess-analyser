@@ -202,16 +202,85 @@ body {
 }
 
 .pgn-display {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    background-color: #2a2a2a;
-    padding: 10px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    background-color: #262421; /* Lichess dark background */
     border-radius: 5px;
-    word-break: break-word;
-    max-height: 100px;
-    overflow-y: auto;
-    font-family: monospace;
+    font-family: 'Inter', sans-serif;
     border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#pgn-grid {
+    overflow-y: auto;
+    max-height: 200px;
+    width: 100%;
+}
+
+.pgn-row {
+    display: grid;
+    grid-template-columns: 40px 1fr 1fr;
+    align-items: center;
+}
+
+.pgn-row:nth-child(even) {
+    background-color: #2a2825;
+}
+
+.pgn-num {
+    color: #888;
+    text-align: right;
+    padding-right: 10px;
+    background-color: #201e1b;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.pgn-move {
+    padding: 4px 8px;
+    cursor: pointer;
+    color: #ccc;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.pgn-move:hover {
+    background-color: #383531;
+}
+
+.pgn-move.active {
+    background-color: #2085d0; /* Lichess blue highlight */
+    color: white;
+    font-weight: 500;
+    border-radius: 3px;
+}
+
+.pgn-move.variation {
+    color: #cda2d8; /* Light purple for variation text */
+}
+
+.pgn-move.variation.active {
+    background-color: #9c27b0; /* Deep purple highlight for active variation move */
+    color: white;
+}
+
+.deviation-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background-color: #302e2c;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.deviation-banner .btn {
+    padding: 4px 8px;
+    font-size: 0.8rem;
 }
 
 .pgn-input-section {

@@ -34,6 +34,7 @@ def analyze_game(game, stockfish_path):
         } for p in ["white", "black"]
     }
     game_data["absolute_white_wp_timeline"] = []
+    game_data["cp_timeline"] = []
     
     # Get the initial evaluation of the starting position
     info_before = engine.analyse(board, limit)
@@ -103,6 +104,7 @@ def analyze_game(game, stockfish_path):
         cp_after = info_after["score"].pov(chess.WHITE).score(mate_score=10000)
         wp_after = cp_to_win_prob(cp_after)
         game_data["absolute_white_wp_timeline"].append(wp_after)
+        game_data["cp_timeline"].append(cp_after / 100.0)
 
         if player == "white":
             acc = calculate_move_accuracy(wp_before, wp_after)

@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -37,6 +39,15 @@
                     <button id="flip-btn" class="btn icon-btn" title="Flip Board"><span class="material-icons">swap_vert</span></button>
                     <button id="threats-btn" class="btn icon-btn" style="background-color: #8b0000;" title="Threats"><span class="material-icons">warning</span></button>
                 </div>
+                
+                <div class="graph-section" style="margin-top: 10px; text-align: center; background-color: var(--bg-panel); padding: 15px; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; box-sizing: border-box;">
+                    <button id="plot-graph-btn" class="btn btn-full" style="background-color: #ff9800; width: 100%; margin-bottom: 10px;">Analyse your pasted PGN or imported games</button>
+                    <div id="plot-loading" class="loading hidden" style="margin-bottom: 10px; font-size: 0.9rem;">
+                        <div class="spinner"></div><span>Generating plot...</span>
+                    </div>
+                    <canvas id="eval-chart" style="width: 100%; display: none; margin-bottom: 15px;"></canvas>
+                    <canvas id="metrics-chart" style="width: 100%; display: none;"></canvas>
+                </div>
             </div>
 
             <div class="analysis-panel">
@@ -54,7 +65,10 @@
                     <h3>Evaluation (Stockfish)</h3>
                     <div class="eval-container">
                         <div class="eval-bar"><div id="eval-fill" class="eval-fill" style="width: 50%;"></div></div>
-                        <div id="eval-score" class="value">0.00</div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <div id="eval-score" class="value">0.00</div>
+                            <div id="eval-loading" class="spinner hidden" style="width: 14px; height: 14px; border-width: 2px;"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -69,8 +83,17 @@
                 </div>
 
                 <div class="status-box">
-                    <h3>Current PGN</h3>
-                    <div id="pgn" class="pgn-display">-</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <h3 style="margin: 0;">Current PGN</h3>
+                        <button id="copy-pgn-btn" class="btn icon-btn" title="Copy PGN" style="width: 24px; height: 24px; min-width: 24px; padding: 0;"><span class="material-icons" style="font-size: 14px;">content_copy</span></button>
+                    </div>
+                    <div id="pgn" class="pgn-display">
+                        <div id="deviation-banner" class="deviation-banner hidden">
+                            <span>Exploring variation</span>
+                            <button id="return-mainline-btn" class="btn" style="background-color: #2196f3; color: white;">Main Line</button>
+                        </div>
+                        <div id="pgn-grid"></div>
+                    </div>
                 </div>
 
                 <div class="status-box">
@@ -88,6 +111,18 @@
                             <strong style="color: #e0e0e0;">Black: <span id="acc-b-overall">-</span>%</strong>
                             <span style="color: #aaaaaa;">(O: <span id="acc-b-op">-</span> M: <span id="acc-b-mid">-</span> E: <span id="acc-b-end">-</span>)</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="status-box">
+                    <h3>Engine Settings</h3>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
+                        <label for="engine-depth" style="color: #ccc; font-size: 0.85rem; width: 60px;">Depth:</label>
+                        <input type="number" id="engine-depth" class="form-input" style="flex: 1; padding: 5px;" value="15" min="1" max="25">
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label for="engine-time" style="color: #ccc; font-size: 0.85rem; width: 60px;">Time (s):</label>
+                        <input type="number" id="engine-time" class="form-input" style="flex: 1; padding: 5px;" value="0.5" min="0.1" max="10.0" step="0.1">
                     </div>
                 </div>
 
@@ -116,20 +151,8 @@
                     <div id="fetched-games-list" class="fetched-games-list"></div>
                 </div>
 
-                <div id="loading" class="loading hidden">
-                    <div class="spinner"></div><span>Analyzing...</span>
-                </div>
             </div>
         </div>
-        
-        <div class="graph-section" style="margin-top: 20px; text-align: center; background-color: var(--bg-panel); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-            <button id="plot-graph-btn" class="btn btn-full" style="background-color: #ff9800; max-width: 400px; margin: 0 auto 20px auto;">Analyse your pasted PGN or imported games</button>
-            <div id="plot-loading" class="loading hidden" style="margin-bottom: 20px;">
-                <div class="spinner"></div><span>Generating advanced metrics plot (this may take a moment)...</span>
-            </div>
-            <img id="analysis-plot" src="" alt="Structural Metrics Graph" style="max-width: 100%; border-radius: 5px; display: none;">
-        </div>
-
     </div>
     <script type="module" src="/static/app.js"></script>
 </body>
