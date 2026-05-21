@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-
+import io
+import base64
 def plot_game_metrics(data, game_id="1"):
     """
     Saves a stacked dual-panel visualization sharing a single chronological timeline:
@@ -11,6 +12,19 @@ def plot_game_metrics(data, game_id="1"):
     white_t = data["white"].get("human_think_times", [])
     black_t = data["black"].get("human_think_times", [])
     wp_timeline = data.get("absolute_white_wp_timeline", [])
+
+    # Dark theme styling
+    plt.style.use('dark_background')
+    plt.rcParams.update({
+        'axes.facecolor': '#1e1e1e',
+        'figure.facecolor': '#121212',
+        'grid.color': '#333333',
+        'text.color': '#e0e0e0',
+        'axes.labelcolor': '#e0e0e0',
+        'xtick.color': '#aaaaaa',
+        'ytick.color': '#aaaaaa',
+        'axes.edgecolor': '#444444'
+    })
 
     # Chronologically weave timelines together
     timeline_fragility = []
@@ -34,7 +48,7 @@ def plot_game_metrics(data, game_id="1"):
 
     if not timeline_fragility:
         print("No move history data available to chart.")
-        return
+        return None
 
     fig, (ax1, ax3) = plt.subplots(nrows=2, ncols=1, figsize=(15, 10), sharex=True)
     x_positions = list(range(1, len(timeline_fragility) + 1))
@@ -58,7 +72,7 @@ def plot_game_metrics(data, game_id="1"):
 
     lines = line1 + line2
     labels = [l.get_label() for l in lines]
-    ax1.legend(lines, labels, loc='upper left', frameon=True, facecolor='white', framealpha=0.9)
+    ax1.legend(lines, labels, loc='upper left', frameon=True, facecolor='#1e1e1e', framealpha=0.9, edgecolor='#444444')
     ax1.set_title(f'Game #{game_id} Structural Volatility Analysis', fontsize=12, fontweight='bold')
 
     # ==========================================
@@ -93,7 +107,10 @@ def plot_game_metrics(data, game_id="1"):
                  fontsize=14, fontweight='bold', y=0.96)
     
     plt.tight_layout(rect=[0, 0, 1, 0.94])
-    output_filename = f"game_{game_id}_stacked_dashboard.png"
-    plt.savefig(output_filename, dpi=300)
+    
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', transparent=False)
     plt.close()
-    print(f" saved successfully as: '{output_filename}'")
+    buf.seek(0)
+    img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+    return img_b64

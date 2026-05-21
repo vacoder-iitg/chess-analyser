@@ -13,8 +13,10 @@ from typing import Optional
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'analyser'))
 from opening_explorer import FastOpeningDetector
-from game_engine import cp_to_win_prob, calculate_move_accuracy
+from game_engine import cp_to_win_prob, calculate_move_accuracy, analyze_game
 from game_analyzer import analyze_full_game
+from plotter import plot_game_metrics
+import io
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -129,6 +131,26 @@ async def handle_full_game_analysis(req: FullGameAnalysisRequest):
         return results
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/plot_game")
+async def handle_plot_game(req: FullGameAnalysisRequest):
+    engine_path = os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish.exe')
+    try:
+        def generate_plot():
+            game = chess.pgn.read_game(io.StringIO(req.pgn))
+            if not game:
+                return {"error": "Failed to parse PGN."}
+            data, result = analyze_game(game, engine_path)
+            b64_img = plot_game_metrics(data, game_id="User Game")
+            if not b64_img:
+                return {"error": "Not enough moves to plot."}
+            return {"image": b64_img}
+            
+        results = await asyncio.to_thread(generate_plot)
+        return results
+    except Exception as e:
+        import traceback
+        return {"error": repr(e) + " " + traceback.format_exc()}
 
 @app.get("/fetch_games")
 async def fetch_games(platform: str, username: str, time_format: str):

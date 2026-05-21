@@ -119,6 +119,15 @@
                 </div>
             </div>
         </div>
+        
+        <div class="graph-section" style="margin-top: 20px; text-align: center; background-color: var(--bg-panel); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <button id="plot-graph-btn" class="btn btn-full" style="background-color: #ff9800; max-width: 400px; margin: 0 auto 20px auto;">Analyse your pasted PGN or imported games</button>
+            <div id="plot-loading" class="loading hidden" style="margin-bottom: 20px;">
+                <div class="spinner"></div><span>Generating advanced metrics plot (this may take a moment)...</span>
+            </div>
+            <img id="analysis-plot" src="" alt="Structural Metrics Graph" style="max-width: 100%; border-radius: 5px; display: none;">
+        </div>
+
     </div>
     <script type="module" src="/static/app.js"></script>
 </body>

@@ -14,7 +14,10 @@ const elements = {
     topPlayer: document.getElementById('board-top-player'),
     bottomPlayer: document.getElementById('board-bottom-player'),
     pgnInput: document.getElementById('pgn-input'),
-    fetchGamesList: document.getElementById('fetched-games-list')
+    fetchGamesList: document.getElementById('fetched-games-list'),
+    plotGraphBtn: document.getElementById('plot-graph-btn'),
+    plotLoading: document.getElementById('plot-loading'),
+    analysisPlot: document.getElementById('analysis-plot')
 };
 
 let game = new Chess();
@@ -393,6 +396,39 @@ document.getElementById('calc-pgn-accuracy-btn').addEventListener('click', funct
     const pgnText = elements.pgnInput.value.trim();
     if (!pgnText) return alert("Please paste a PGN or fetch a game first!");
     runOverallAccuracy(pgnText, this);
+});
+
+elements.plotGraphBtn.addEventListener('click', async function() {
+    const pgnText = elements.pgnInput.value.trim() || game.pgn();
+    if (!pgnText) return alert("Please paste a PGN, fetch a game, or play some moves first!");
+    
+    const originalText = this.textContent;
+    this.textContent = 'Generating plot...';
+    this.disabled = true;
+    elements.plotLoading.classList.remove('hidden');
+    elements.analysisPlot.style.display = 'none';
+
+    try {
+        const response = await fetch('/plot_game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pgn: pgnText })
+        });
+        
+        const data = await response.json();
+        if (data.detail) throw new Error("Validation Error: " + JSON.stringify(data.detail));
+        if (data.error) throw new Error(data.error);
+        if (!data.image) throw new Error("Invalid response format. Data received: " + JSON.stringify(data).substring(0, 100));
+
+        elements.analysisPlot.src = "data:image/png;base64," + data.image;
+        elements.analysisPlot.style.display = 'block';
+    } catch (e) {
+        alert("Plot generation failed: " + e.message);
+    } finally {
+        this.textContent = originalText;
+        this.disabled = false;
+        elements.plotLoading.classList.add('hidden');
+    }
 });
 
 initBoard();
