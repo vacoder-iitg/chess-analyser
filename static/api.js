@@ -1,5 +1,5 @@
-import { state, elements } from './state.js';
-import { displayAnalysis } from './ui.js';
+import { state, elements } from './state.js?v=4';
+import { displayAnalysis } from './ui.js?v=4';
 
 let analysisTimeout = null;
 let currentAnalysisFen = null;

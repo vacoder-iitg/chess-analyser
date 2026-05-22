@@ -1,5 +1,5 @@
-import { state, elements } from './state.js';
-import { jumpToMove } from './gameLogic.js';
+import { state, elements } from './state.js?v=4';
+import { jumpToMove } from './gameLogic.js?v=4';
 
 let evalChartInstance = null;
 let metricsChartInstance = null;

@@ -1,9 +1,9 @@
-import { state, elements } from './state.js';
-import { initBoard, updateBoardState, updatePlayerOrientation } from './board.js';
-import { updateStatus, drawBadge } from './ui.js';
-import { playMoveSan, jumpToMoveUniversal } from './gameLogic.js';
-import { debouncedAnalyzePosition, clearAnalysisCache, runOverallAccuracy } from './api.js';
-import { plotGameMetrics } from './charts.js';
+import { state, elements } from './state.js?v=4';
+import { initBoard, updateBoardState, updatePlayerOrientation } from './board.js?v=4';
+import { updateStatus, drawBadge } from './ui.js?v=4';
+import { playMoveSan, jumpToMoveUniversal } from './gameLogic.js?v=4';
+import { debouncedAnalyzePosition, clearAnalysisCache, runOverallAccuracy } from './api.js?v=4';
+import { plotGameMetrics } from './charts.js?v=4';
 
 // Setup Event Listeners
 

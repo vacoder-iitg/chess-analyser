@@ -1,7 +1,7 @@
 import { Chessground } from 'https://unpkg.com/chessground@9.2.1/dist/chessground.min.js';
-import { elements, state } from './state.js';
-import { playMoveSan } from './gameLogic.js';
-import { updateStatus } from './ui.js';
+import { elements, state } from './state.js?v=4';
+import { playMoveSan } from './gameLogic.js?v=4';
+import { updateStatus } from './ui.js?v=4';
 
 export function getLegalMoves(chessGame) {
     const dests = new Map();

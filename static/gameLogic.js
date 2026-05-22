@@ -1,6 +1,6 @@
-import { state } from './state.js';
-import { updateBoardState } from './board.js';
-import { debouncedAnalyzePosition } from './api.js';
+import { state, elements } from './state.js?v=4';
+import { updateBoardState, updatePlayerOrientation } from './board.js?v=4';
+import { clearAnalysisCache, debouncedAnalyzePosition } from './api.js?v=4';
 
 export function playMoveSan(moveSan) {
     if (!state.isExploringVariation && state.loadedGameMoves.length > 0 && state.currentMoveIndex < state.loadedGameMoves.length) {
