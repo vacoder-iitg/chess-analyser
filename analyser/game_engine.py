@@ -76,8 +76,8 @@ def analyze_game(game, stockfish_path):
     board = game.board()
     result = game.headers.get("Result", "*")
     
-    # Use depth instead of time limit as requested
-    limit = chess.engine.Limit(depth=15)
+    # Restoring time limits to prevent Render 502 Bad Gateway timeouts
+    limit = chess.engine.Limit(time=0.5, depth=15)
 
     game_data = {
         p: {

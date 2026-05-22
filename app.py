@@ -119,7 +119,7 @@ async def evaluate_position(req: EvaluationRequest):
         if cache_key in evaluation_cache:
             info_current = evaluation_cache[cache_key]
         else:
-            info = await engine.analyse(board, chess.engine.Limit(depth=req.depth))
+            info = await engine.analyse(board, chess.engine.Limit(time=req.time, depth=req.depth))
             cp_after = score = 0.0
             mate = best_move = None
             if "score" in info:
@@ -150,7 +150,7 @@ async def evaluate_position(req: EvaluationRequest):
                     prev_cp = evaluation_cache[prev_cache_key]["raw_cp"]
                 else:
                     prev_board = chess.Board(prev_fen)
-                    info_prev = await engine.analyse(prev_board, chess.engine.Limit(depth=req.depth))
+                    info_prev = await engine.analyse(prev_board, chess.engine.Limit(time=req.time, depth=req.depth))
                     prev_cp = info_prev["score"].pov(chess.WHITE).score(mate_score=10000)
                     evaluation_cache[prev_cache_key] = {
                         "score": info_prev["score"].white().score(mate_score=10000)/100.0,
