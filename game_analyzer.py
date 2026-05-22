@@ -24,7 +24,7 @@ def analyze_full_game(pgn_string, stockfish_path, depth=15, time_limit=0.5):
         engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
         engine.configure({"Threads": 1, "Hash": 16})
         board = game.board()
-        limit = chess.engine.Limit(time=time_limit, depth=depth)
+        limit = chess.engine.Limit(depth=depth)
 
         game_data = {
             p: {"accs": [], "opening": [], "middle": [], "end": []} for p in ["white", "black"]

@@ -17,8 +17,8 @@ def analyze_game(game, stockfish_path):
     board = game.board()
     result = game.headers.get("Result", "*")
     
-    # Restricting time for rapid O(1) evaluation iterations
-    limit = chess.engine.Limit(time=0.1)
+    # Use depth instead of time limit as requested
+    limit = chess.engine.Limit(depth=15)
 
     game_data = {
         p: {
