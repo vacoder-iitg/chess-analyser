@@ -5,11 +5,70 @@ import time
 from structural_metrics import calculate_fragility_score
 
 def cp_to_win_prob(cp):
-    return 50 + 50 * (2 / (1 + math.exp(-0.00368208 * cp)) - 1)
+    """Exact Lichess Centipawn to Win Percentage conversion."""
+    clamped_cp = max(-10000, min(10000, cp)) 
+    return 50 + 50 * (2 / (1 + math.exp(-0.00368208 * clamped_cp)) - 1)
 
 def calculate_move_accuracy(wp_before, wp_after):
-    diff = max(0, wp_before - wp_after)
-    return max(0, min(100, 103.1668 * math.exp(-0.04354 * diff) - 3.1669))
+    """Exact Lichess ply accuracy formula with the +1 uncertainty bonus."""
+    if wp_after >= wp_before:
+        return 100.0
+
+    win_diff = wp_before - wp_after
+    raw = 103.1668100711649 * math.exp(-0.04354415386753951 * win_diff) - 3.166924740191411
+    
+    return max(0.0, min(100.0, raw + 1.0))
+
+def calculate_lichess_game_accuracy(cp_timeline):
+    if len(cp_timeline) < 2:
+        return 0.0, 0.0
+
+    win_percents = [cp_to_win_prob(cp) for cp in cp_timeline]
+    
+    num_cps = len(cp_timeline)
+    window_size = max(2, min(8, num_cps // 10))
+    
+    windows = []
+    pad_count = max(0, min(window_size, num_cps) - 2)
+    first_window = win_percents[:window_size]
+    
+    for _ in range(pad_count):
+        windows.append(first_window)
+        
+    for i in range(num_cps - window_size + 1):
+        windows.append(win_percents[i:i+window_size])
+        
+    weights = []
+    for w in windows:
+        std_dev = statistics.stdev(w) if len(w) > 1 else 0.0
+        weights.append(max(0.5, min(12.0, std_dev)))
+        
+    white_accs, white_weights = [], []
+    black_accs, black_weights = [], []
+    
+    for i in range(len(win_percents) - 1):
+        wp_before = win_percents[i]
+        wp_after = win_percents[i+1]
+        
+        is_white_turn = (i % 2 == 0)
+        
+        if is_white_turn:
+            acc = calculate_move_accuracy(wp_before, wp_after)
+            white_accs.append(acc)
+            white_weights.append(weights[i])
+        else:
+            acc = calculate_move_accuracy(100.0 - wp_before, 100.0 - wp_after)
+            black_accs.append(acc)
+            black_weights.append(weights[i])
+            
+    def aggregate(accuracies, wts):
+        if not accuracies: return 0.0
+        weighted_mean = sum(a * w for a, w in zip(accuracies, wts)) / sum(wts) if sum(wts) > 0 else 0.0
+        harmonic_mean = len(accuracies) / sum(1.0 / max(0.1, a) for a in accuracies)
+        return (weighted_mean + harmonic_mean) / 2.0
+        
+    return aggregate(white_accs, white_weights), aggregate(black_accs, black_weights)
+
 
 def analyze_game(game, stockfish_path):
     engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
