@@ -13,7 +13,6 @@ export const elements = {
     copyPgnBtn: document.getElementById('copy-pgn-btn'),
     accuracyResults: document.getElementById('accuracy-results'),
     engineDepth: document.getElementById('engine-depth'),
-    engineTime: document.getElementById('engine-time'),
     topPlayer: document.getElementById('board-top-player'),
     bottomPlayer: document.getElementById('board-bottom-player'),
     pgnInput: document.getElementById('pgn-input'),

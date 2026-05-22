@@ -140,11 +140,6 @@ elements.engineDepth.addEventListener('change', () => {
     debouncedAnalyzePosition();
 });
 
-elements.engineTime.addEventListener('change', () => {
-    clearAnalysisCache();
-    debouncedAnalyzePosition();
-});
-
 document.getElementById('calc-board-accuracy-btn').addEventListener('click', function() {
     if (!state.game.pgn()) return alert("No moves played on the board yet!");
     runOverallAccuracy(state.game.pgn(), this);
