@@ -1,5 +1,5 @@
-import { state, elements } from './state.js';
-import { displayAnalysis } from './ui.js';
+import { state, elements } from './state.js?v=4';
+import { displayAnalysis } from './ui.js?v=4';
 
 let analysisTimeout = null;
 let currentAnalysisFen = null;
@@ -30,12 +30,11 @@ export async function analyzePosition() {
     
     try {
         const depth = parseInt(elements.engineDepth.value) || 15;
-        const timeLimit = parseFloat(elements.engineTime.value) || 0.5;
         
         const response = await fetch('/evaluate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fen, prev_fen: tempPrevFen, depth: depth, time: timeLimit }),
+            body: JSON.stringify({ fen, prev_fen: tempPrevFen, depth: depth }),
             signal: currentAbortController.signal
         });
         
@@ -76,12 +75,11 @@ export async function runOverallAccuracy(pgnString, btnElement) {
 
     try {
         const depth = parseInt(elements.engineDepth.value) || 15;
-        const timeLimit = parseFloat(elements.engineTime.value) || 0.5;
         
         const response = await fetch('/analyze_full_game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pgn: pgnString, depth: depth, time_limit: timeLimit })
+            body: JSON.stringify({ pgn: pgnString, depth: depth })
         });
         
         const data = await response.json();

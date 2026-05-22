@@ -11,6 +11,17 @@ import ndjson
 import asyncio
 from typing import Optional
 
+import platform
+
+def get_engine_path():
+    if platform.system() == "Windows":
+        return os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish.exe')
+    else:
+        local_linux = os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish')
+        if os.path.exists(local_linux):
+            return local_linux
+        return "stockfish"
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'analyser'))
 from opening_explorer import FastOpeningDetector
 from game_engine import cp_to_win_prob, calculate_move_accuracy, analyze_game
@@ -31,11 +42,11 @@ evaluation_cache = {}
 @app.on_event("startup")
 async def startup_event():
     global engine
-    engine_path = os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish.exe')
+    engine_path = get_engine_path()
     try:
         transport, engine = await chess.engine.popen_uci(engine_path)
-        await engine.configure({"Threads": 2, "Hash": 128})
-    except Exception:
+        await engine.configure({"Threads": 1, "Hash": 32})
+    except Exception as e:
         engine = None
 
 class EvaluationRequest(BaseModel):
@@ -184,7 +195,7 @@ async def evaluate_position(req: EvaluationRequest):
 
 @app.post("/analyze_full_game")
 async def handle_full_game_analysis(req: FullGameAnalysisRequest):
-    engine_path = os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish.exe')
+    engine_path = get_engine_path()
     try:
         results = await asyncio.to_thread(analyze_full_game, req.pgn, engine_path, req.depth, req.time_limit)
         if not results:
@@ -195,7 +206,7 @@ async def handle_full_game_analysis(req: FullGameAnalysisRequest):
 
 @app.post("/plot_game")
 async def handle_plot_game(req: FullGameAnalysisRequest):
-    engine_path = os.path.join(os.path.dirname(__file__), 'stockfish', 'stockfish.exe')
+    engine_path = get_engine_path()
     try:
         def generate_plot():
             game = chess.pgn.read_game(io.StringIO(req.pgn))

@@ -1,5 +1,5 @@
-import { state, elements } from './state.js';
-import { jumpToMoveUniversal } from './gameLogic.js';
+import { state, elements } from './state.js?v=4';
+import { jumpToMoveUniversal } from './gameLogic.js?v=4';
 
 export function updateStatus() {
     let statusHTML = '';
